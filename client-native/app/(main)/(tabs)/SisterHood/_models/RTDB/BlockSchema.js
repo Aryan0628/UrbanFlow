@@ -1,0 +1,16 @@
+export const BlockSchema = {
+    block_state: { 
+        active_user_count: 0,
+        active_users: {},       
+        sos_count: 0,          
+        ai_analysis: "",        
+        safety_metrics: {
+            current_score: 10.0, 
+            mean_sos: 1.0,        
+            std_dev: 1.0,         
+            z_score: 0.0,         
+            last_updated: null    
+        },
+        geohashId:"",
+    }
+};
