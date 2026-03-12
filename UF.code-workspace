@@ -5,8 +5,8 @@
       "path": "agents"
     },
     {
-      "name":"client-native",
-      "path":"client-native"
+      "name": "client-native",
+      "path": "client-native"
     },
     {
       "name": "client",
@@ -17,12 +17,8 @@
       "path": "server"
     },
     {
-      "name": "sentinal",
-      "path": "sentinal"
-    },
-    {
       "path": "."
-    },
+    }
   ],
   "settings": {
     "python.terminal.activateEnvironment": true
