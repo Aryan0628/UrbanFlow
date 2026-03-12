@@ -41,11 +41,15 @@ if (!doc.exists) {
     interestedToWork: false,
     hasSeenWorkerPrompt: false,
     completedJobs: 0,
-    workerCategory: null
+    workerCategory: null,
+    trust_score:5,
   });
 }
 
-    return res.json({ success: true });
+    return res.json({ success: true,
+      trust_score:user.trust_score
+
+    });
   } catch (error) {
     console.error("SYNC USER ERROR:", error.message);
     return res.status(401).json({ error: "Unauthorized" });
