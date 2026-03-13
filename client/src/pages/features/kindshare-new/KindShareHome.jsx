@@ -105,6 +105,12 @@ const fetchNGO = async () => {
             >
             My Donations
             </button>
+        <button
+            className="bg-purple-500 text-white px-4 py-2 rounded"
+            onClick={()=>navigate("/kindshare/receiver/my-requests")}
+            >
+            My Requests
+            </button>
 
       </div>
 
