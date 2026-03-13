@@ -143,11 +143,9 @@ export const getAvailableDonationsByNGO = async (req, res) => {
     }));
 
     // filter category safely
-    if (category) {
-      donations = donations.filter(d =>
-        d.itemName?.toLowerCase().includes(category.toLowerCase())
-      );
-    }
+   if (category) {
+  donations = donations.filter(d => d.category === category);
+}
 
     res.json(donations);
 

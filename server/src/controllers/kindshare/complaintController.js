@@ -4,21 +4,25 @@ export const createComplaint = async (req,res)=>{
 
 try{
 
-const complaint = req.body;
+const { ngoId, name, itemOrCategory, issue, complaintFrom } = req.body;
 
 const ref = await db.collection("kindshare_complaints").add({
-...complaint,
-createdAt:new Date()
+ngoId: ngoId || "",
+name: name || "",
+itemOrCategory: itemOrCategory || "",
+issue: issue || "",
+complaintFrom: complaintFrom || "",
+createdAt: new Date()
 });
 
 res.json({
-id:ref.id,
+id: ref.id,
 message:"Complaint submitted"
 });
 
 }catch(error){
 
-console.error(error);
+console.error("Complaint error:",error);
 
 res.status(500).json({
 error:"Failed to submit complaint"
