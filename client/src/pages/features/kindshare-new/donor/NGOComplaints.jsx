@@ -1,38 +1,29 @@
-import { useEffect,useState } from "react";
+import { useState } from "react";
 import { useParams } from "react-router-dom";
 
-export default function NGOComplaints(){
+export default function ComplaintForm(){
 
 const { ngoId } = useParams();
 
-const [complaints,setComplaints] = useState([]);
 const [name,setName] = useState("");
+const [item,setItem] = useState("");
 const [issue,setIssue] = useState("");
 
-useEffect(()=>{
+const submitComplaint = async () => {
 
-fetch(`http://localhost:3000/api/kindshare/complaints/ngo/${ngoId}`)
-.then(res=>res.json())
-.then(data=>setComplaints(data));
-
-},[ngoId]);
-
-const submitComplaint = async()=>{
-
-await fetch(
-"http://localhost:3000/api/kindshare/complaints",
-{
+await fetch("http://localhost:3000/api/kindshare/complaints",{
 method:"POST",
 headers:{
 "Content-Type":"application/json"
 },
 body:JSON.stringify({
 ngoId,
-donorName:name,
-issue
+name,
+itemOrCategory: item,
+issue,
+complaintFrom:"Donor"
 })
-}
-);
+});
 
 alert("Complaint submitted");
 
@@ -40,36 +31,27 @@ alert("Complaint submitted");
 
 return(
 
-<div className="p-6">
+<div className="border p-4 rounded mt-3">
 
-<h2 className="text-xl font-bold mb-4">
-Complaint History
-</h2>
-
-{complaints.map(c=>(
-<div key={c.id} className="border p-3 mb-3">
-
-<p><b>Name:</b> {c.donorName}</p>
-<p><b>Issue:</b> {c.issue}</p>
-
-</div>
-))}
-
-<h2 className="text-xl font-bold mt-6 mb-3">
+<h3 className="font-bold mb-2">
 Submit Complaint
-</h2>
+</h3>
 
 <input
 placeholder="Your Name"
 className="border p-2 w-full mb-2"
-value={name}
 onChange={(e)=>setName(e.target.value)}
 />
 
+<input
+placeholder="Item / Category"
+className="border p-2 w-full mb-2"
+onChange={(e)=>setItem(e.target.value)}
+/>
+
 <textarea
-placeholder="Issue"
-className="border p-2 w-full mb-3"
-value={issue}
+placeholder="Describe Issue"
+className="border p-2 w-full mb-2"
 onChange={(e)=>setIssue(e.target.value)}
 />
 
@@ -82,6 +64,6 @@ Submit Complaint
 
 </div>
 
-);
+)
 
 }

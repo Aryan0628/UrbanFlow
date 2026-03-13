@@ -13,6 +13,7 @@ export default function DonateItem(){
   const [itemName,setItemName] = useState("");
   const [quantity,setQuantity] = useState("");
   const [description,setDescription] = useState("");
+  const [category,setCategory] = useState("");
   const [image,setImage] = useState(null);
 
   const handleSubmit = async (e) => {
@@ -63,6 +64,7 @@ export default function DonateItem(){
             donorPhone,
             donorAddress: address,
             itemName,
+            category,
             quantity,
             description,
             imageUrl,
@@ -120,6 +122,20 @@ export default function DonateItem(){
           value={address}
           onChange={(e)=>setAddress(e.target.value)}
         />
+        <select
+        className="border p-2 w-full"
+        value={category}
+        onChange={(e)=>setCategory(e.target.value)}
+        >
+
+<option value="">Select Category</option>
+<option value="Clothes">Clothes</option>
+<option value="Books">Books</option>
+<option value="Medicines">Medicines</option>
+<option value="Electronics">Electronics</option>
+<option value="Others">Others</option>
+
+</select>
 
         <input
           placeholder="Item Name"
@@ -147,6 +163,7 @@ export default function DonateItem(){
           className="border p-2 w-full"
           onChange={(e)=>setImage(e.target.files[0])}
         />
+
 
         <button
           className="bg-green-600 text-white p-3 rounded w-full"

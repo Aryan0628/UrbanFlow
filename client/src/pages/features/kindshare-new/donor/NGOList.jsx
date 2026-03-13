@@ -1,9 +1,12 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import ComplaintForm from "./ComplaintForm";
+import ComplaintHistory from "./DonorComplaintHistory";
 
 export default function NGOList() {
 
   const [ngos,setNgos] = useState([]);
+  const [selectedNGO,setSelectedNGO] = useState(null);
 
   const location = useLocation();
   const navigate = useNavigate();
@@ -13,6 +16,7 @@ export default function NGOList() {
   const category = params.get("category");
   const lat = params.get("lat");
   const lon = params.get("lon");
+
   console.log("Donor location:", lat, lon);
 
   useEffect(()=>{
@@ -31,48 +35,73 @@ export default function NGOList() {
         NGOs accepting {category}
       </h2>
 
-      {ngos.map(ngo => (
+      {ngos.map(ngo => {
 
-        <div
-        key={ngo._id || ngo.id}
-        className="border p-4 rounded shadow mb-4 bg-white">
+        const ngoId = ngo._id || ngo.id;
 
-          <h3 className="text-lg font-bold">
-            {ngo.name}
-          </h3>
+        return (
 
-          <p>Admin: {ngo.adminName}</p>
+          <div
+          key={ngoId}
+          className="border p-4 rounded shadow mb-4 bg-white">
 
-          <p>Address: {ngo.address}</p>
+            <h3 className="text-lg font-bold">
+              {ngo.name}
+            </h3>
 
-          <p>Categories: {ngo.categories.join(", ")}</p>
+            <p>Admin: {ngo.adminName}</p>
 
-          <p>Rating ⭐ {ngo.rating}</p>
+            <p>Address: {ngo.address}</p>
 
-          <p>
-            Distance 📍
-            {ngo.distance
-              ? Number(ngo.distance).toFixed(2)
-              : "Unknown"} km
-          </p>
+            <p>Categories: {ngo.categories.join(", ")}</p>
 
-          <button
-          className="bg-green-500 text-white px-4 py-2 mt-3 rounded"
-          onClick={()=>navigate(`/donate/${ngo._id || ngo.id}`)}
-          >
-          Donate to this NGO
-          </button>
-          <button
-            className="bg-red-500 text-white px-3 py-1 rounded mt-2"
-            onClick={()=>navigate(`/kindshare/complaints/${ngo.id}`)}
+            <p>Rating ⭐ {ngo.rating}</p>
+
+            <p>
+              Distance 📍
+              {ngo.distance
+                ? Number(ngo.distance).toFixed(2)
+                : "Unknown"} km
+            </p>
+
+            {/* Donate Button */}
+            <button
+              className="bg-green-500 text-white px-4 py-2 mt-3 rounded mr-2"
+              onClick={()=>navigate(`/donate/${ngoId}`)}
             >
-            View Complaints
+              Donate to this NGO
             </button>
 
-        </div>
+            {/* View Complaint Button */}
+            <button
+              className="bg-red-500 text-white px-3 py-1 rounded mt-2"
+              onClick={()=>setSelectedNGO(
+                selectedNGO === ngoId ? null : ngoId
+              )}
+            >
+              View Complaints and History
+            </button>
 
-      ))}
+            {/* Complaint Section */}
+            {selectedNGO === ngoId && (
+
+              <div className="mt-4">
+
+                <ComplaintHistory ngoId={ngoId} />
+
+                <ComplaintForm ngoId={ngoId} />
+
+              </div>
+
+            )}
+
+          </div>
+
+        )
+
+      })}
 
     </div>
+
   );
 }
