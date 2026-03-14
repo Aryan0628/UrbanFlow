@@ -27,10 +27,11 @@ export function runFloodCheck(
 ) {
   return new Promise((resolve, reject) => {
     
-    // --- FIX START ---
-    // Use the venv python executable where libraries are installed
-    const pythonExecutable = path.join(process.cwd(), "venv", "bin", "python3");
-    // --- FIX END ---
+    // Cross-platform: use correct venv path for Windows vs Unix
+    const isWindows = process.platform === "win32";
+    const pythonExecutable = isWindows
+      ? path.join(process.cwd(), "venv", "Scripts", "python.exe")
+      : path.join(process.cwd(), "venv", "bin", "python3");
     
     const scriptFilename = "sentinel1_flood.py"; 
     const scriptPath = path.resolve(__dirname, scriptFilename);

@@ -30,10 +30,11 @@ export function runAirQualityCheck(
 ) {
   return new Promise((resolve, reject) => {
     
-    // --- FIX START ---
-    // Point explicitly to the venv python executable
-    const pythonExecutable = path.join(process.cwd(), "venv", "bin", "python3");
-    // --- FIX END ---
+    // Cross-platform: use correct venv path for Windows vs Unix
+    const isWindows = process.platform === "win32";
+    const pythonExecutable = isWindows
+      ? path.join(process.cwd(), "venv", "Scripts", "python.exe")
+      : path.join(process.cwd(), "venv", "bin", "python3");
     
     const scriptFilename = "sentinel5p_air_quality.py"; 
     const scriptPath = path.resolve(__dirname, scriptFilename);

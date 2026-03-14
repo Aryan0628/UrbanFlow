@@ -24,7 +24,10 @@ export function runDeforestationCheck(
   previousDays
 ) {
   return new Promise((resolve, reject) => {
-    const pythonExecutable = path.join(process.cwd(), "venv", "bin", "python3"); 
+    const isWindows = process.platform === "win32";
+    const pythonExecutable = isWindows
+      ? path.join(process.cwd(), "venv", "Scripts", "python.exe")
+      : path.join(process.cwd(), "venv", "bin", "python3"); 
     
     const scriptFilename = "copernicus_deforestation.py";
     const scriptPath = path.resolve(__dirname, scriptFilename);
@@ -64,9 +67,11 @@ export function runDeforestationCheck(
     const inputJsonString = JSON.stringify(inputData);
 
     let scriptOutput = "";
+    let stderrOutput = "";
     
     pythonProcess.stderr.on("data", (data) => {
       const message = data.toString();
+      stderrOutput += message;
       console.error(`[Python Log]: ${message.trim()}`); 
       console.error("🐍 Python Error Output:", data.toString());
     });
@@ -103,7 +108,8 @@ export function runDeforestationCheck(
         }
       } else {
         console.error(`Python script failed with exit code ${code}`);
-        reject(new Error(`Python script failed with code ${code}.`));
+        const details = scriptOutput.trim() || stderrOutput.trim() || "No output";
+        reject(new Error(`Python script failed with code ${code}. Output: ${details}`));
       }
     });
 

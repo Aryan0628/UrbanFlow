@@ -25,11 +25,11 @@ export function runFireProtectionCheck(
 ) {
   return new Promise((resolve, reject) => {
     
-    // --- FIX START ---
-    // Instead of using the global 'python3', we point to the venv we built.
-    // This assumes 'venv' is in the root of your 'server' directory (process.cwd())
-    const pythonExecutable = path.join(process.cwd(), "venv", "bin", "python3"); 
-    // --- FIX END ---
+    // Cross-platform: use correct venv path for Windows vs Unix
+    const isWindows = process.platform === "win32";
+    const pythonExecutable = isWindows
+      ? path.join(process.cwd(), "venv", "Scripts", "python.exe")
+      : path.join(process.cwd(), "venv", "bin", "python3");
 
     const scriptFilename = "viirs_fire_monitor.py"; 
     const scriptPath = path.resolve(__dirname, scriptFilename);

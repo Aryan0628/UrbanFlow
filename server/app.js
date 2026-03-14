@@ -2,6 +2,8 @@ import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 
+import connectDB from "./src/config/dbMongo.js";
+connectDB();
 
 // Route Imports
 import authRoutes from "./src/routes/auth.js";
@@ -23,11 +25,16 @@ import reportRoutes from "./src/routes/report.routes.js"
 import userRoutes from "./src/routes/user.routes.js"
 import mapReports from "./src/routes/mapReports.js";
 import blocksRoutes from "./src/routes/blocks.route.js";
+import kindshareRoutes from "./src/routes/kindshare/index.js";
+
+
 
 
 const app = express();
 app.use(express.json());
-app.use(express.urlencoded({ extended: true })); // 🔥 FIXES req.body undefined
+app.use(express.urlencoded({ extended: true }));
+
+
 
 
 
@@ -36,7 +43,7 @@ console.log("CORS ORIGIN:", process.env.CORS_ORIGIN);
 
 app.use(
   cors({
-    origin: [process.env.CORS_ORIGIN, "http://localhost:5173", process.env.MOBILE_ORIGIN],
+    origin: [process.env.CORS_ORIGIN, "http://localhost:5173", "http://10.98.133.11:3000"],
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE","PATCH"]
   })
@@ -44,6 +51,7 @@ app.use(
 
 app.use(express.json());
 app.use(cookieParser());
+app.use("/api/kindshare", kindshareRoutes);
 
 
 
@@ -114,6 +122,9 @@ app.use("/api/user",userRoutes)
 app.use("/api/reports",reportRoutes)
 app.use("/map-reports", mapReports);
 app.use("/api/blocks", blocksRoutes);
+
+import urbanconnectRoutes from "./src/routes/urbanconnect.route.js";
+app.use("/api/urbanconnect", urbanconnectRoutes);
 
 app.get("/health", (req, res) => res.status(200).json({ message: "server is healthy" }));
 

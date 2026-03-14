@@ -22,7 +22,8 @@ def initialize_gee(credentials_path_arg):
         scoped_credentials = credentials.with_scopes(['https://www.googleapis.com/auth/earthengine'])
         ee.Initialize(credentials=scoped_credentials, project=GCP_PROJECT_ID, opt_url='https://earthengine-highvolume.googleapis.com')
         return True
-    except Exception:
+    except Exception as e:
+        print(f"GEE Init Error: {e}", file=sys.stderr)
         return False
 
 def get_clean_s2_composite(region, start_date, end_date):

@@ -16,7 +16,10 @@ import { saveFireReport } from "../controllers/aiReports/fireReports.js";
 import { updateFireReports } from "../controllers/updateReports/fireUpdate.js";
 import { FireReport } from "../controllers/saveReports/saveFireReport.js"
 import {FetchAdminFireHistory} from "../controllers/saveReports/fetchAdminFireHistory.js"
-import {fetchReportCount} from "../controllers/administration/fetchReportCount.js"
+import { fetchReportCount } from "../controllers/administration/fetchReportCount.js"
+import { fetchSafetyReports } from "../controllers/administration/fetchSafetyReports.js"
+
+router.get('/safety-reports', fetchSafetyReports)
 router.post('/waterReports',saveWaterReport)
 router.post('/wasteReports',saveWasteReport)
 router.post('/infrastructureReports',saveInfrastructureReport)
