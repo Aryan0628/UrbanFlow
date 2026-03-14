@@ -8,9 +8,10 @@ export const BlockSchema = {
             current_score: 10.0, 
             mean_sos: 1.0,        
             std_dev: 1.0,         
-            z_score: 0.0,         
+            z_score: 0.0,
+            weighted_sos_impact: 0.0, // ADDED: Stores the Reverse Gaussian dip amount
             last_updated: null    
         },
-        geohashId:"",
+        geohashId: "",
     }
 };

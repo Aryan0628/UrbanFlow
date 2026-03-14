@@ -23,6 +23,41 @@ api.interceptors.request.use(async (config) => {
   return config;
 });
 
+// Request Interceptor
+api.interceptors.request.use(
+  async (config) => {
+    //console.log("Starting Request:", config); // Log request details
+    return config;
+  },
+  (error) => {
+    console.error("Request Error:", error);
+    return Promise.reject(error);
+  }
+);
+
+// Response Interceptor
+api.interceptors.response.use(
+  (response) => {
+    //console.log("Response:", response); // Log response details
+    return response;
+  },
+  (error) => {
+    //console.error("Response Error:", error);
+
+    // Handle specific error codes globally
+    if (error.response) {
+      if (error.response.status === 401) {
+        console.error("Unauthorized! Redirecting to login...");
+        // Add logic to redirect to login or refresh token
+      }
+    } else if (error.message === "Network Error") {
+      console.error("Network Error! Please check your connection.");
+    }
+
+    return Promise.reject(error);
+  }
+);
+
 export const verifyCleanup = async (reportId, file, lat, lng) => {
   const formData = new FormData();
   

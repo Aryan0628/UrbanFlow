@@ -34,14 +34,23 @@ export const performExitCleanup = async ({ userId, blocks, lastGeo6, sosActive }
 /**
  * Hook for in-app usage — wraps the standalone function with navigation + back button handling.
  */
-export const useGracefulExit = ({ user, blocksRef, lastGeo6Ref, sosActive, onExit }) => {
+export const useGracefulExit = ({ user, blocksRef, lastGeo6Ref, sosActive, onExit, onBeforeExit }) => {
     const isExiting = useRef(false);
 
     const handleExit = async () => {
         if (!user || isExiting.current) return;
         isExiting.current = true;
 
-        // Call system-level cleanup (stop service, etc.) if provided
+        // 1. Run any pre-exit logic (e.g. flush trust score to server)
+        if (onBeforeExit) {
+            try {
+                await onBeforeExit();
+            } catch (e) {
+                console.error("Error during onBeforeExit callback:", e);
+            }
+        }
+
+        // 2. Call system-level cleanup (stop service, etc.) if provided
         if (onExit) {
             try {
                 await onExit();
