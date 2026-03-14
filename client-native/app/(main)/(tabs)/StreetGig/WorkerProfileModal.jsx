@@ -8,7 +8,7 @@ export default function WorkerProfileModal({ visible, worker, onClose }) {
 
   return (
     <Animated.View entering={FadeIn} exiting={FadeOut} style={styles.overlay}>
-      <Animated.View entering={SlideInDown.springify().damping(20)} exiting={SlideOutDown} style={styles.modalContent}>
+      <Animated.View entering={SlideInDown.duration(300)} exiting={SlideOutDown} style={styles.modalContent}>
         
         <TouchableOpacity style={styles.closeBtn} onPress={onClose}>
           <X size={24} color="#a1a1aa" />
@@ -85,10 +85,10 @@ const styles = StyleSheet.create({
   ratingBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(245,158,11,0.15)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(245,158,11,0.3)' },
   ratingText: { color: '#fbbf24', fontSize: 14, fontWeight: 'bold', marginLeft: 6 },
   statsRow: { flexDirection: 'row', gap: 12, marginBottom: 24 },
-  statBox: { flex: 1, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 16, padding: 16, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
+  statBox: { flex: 1, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 16, padding: 16, alignItems: 'center' },
   statValue: { color: '#fff', fontSize: 20, fontWeight: '800', marginTop: 8, marginBottom: 4 },
   statLabel: { color: '#a1a1aa', fontSize: 12, fontWeight: '600' },
-  section: { backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: 16, padding: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
+  section: { backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: 16, padding: 20 },
   sectionTitle: { color: '#fff', fontSize: 16, fontWeight: 'bold', marginBottom: 12 },
   descriptionText: { color: '#a1a1aa', fontSize: 14, lineHeight: 22 },
 });

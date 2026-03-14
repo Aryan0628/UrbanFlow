@@ -65,7 +65,6 @@ export default function JobList({ jobs, onSelect, onChat, selectedJobId, isLoadi
           key={job.id}
           job={job}
           isSelected={selectedJobId === job.id}
-          onClick={() => onSelect(job)}
           onChat={() => onChat(job)}
         />
       ))}
