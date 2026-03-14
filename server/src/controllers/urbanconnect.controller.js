@@ -3,6 +3,9 @@ import User from '../models/urbanconnect/userModel.js';
 import Comment from '../models/urbanconnect/commentModel.js';
 import { uploadImage as uploadToCloudinary } from '../services/uploadImage.js';
 import QuestionVote from '../models/urbanconnect/questionVoteModel.js';
+import Administration from '../models/urbanconnect/administrationModel.js';
+import { getRedisClient } from '../config/redis.js';
+import axios from 'axios';
 
 const getTimeAgo = (date) => {
   if (!date) return 'Just now';
@@ -22,8 +25,21 @@ const getTimeAgo = (date) => {
 
 export const fetchQuestions = async (req, res) => {
   try {
+    console.log("fetch q hitted")
     const after = req.query.after;
     const limit = parseInt(req.query.limit || "20");
+    const email = req.user?.email || req.query.email;
+
+    // Check Cache first
+    const redisClient = getRedisClient();
+    const cacheKey = `urbanconnect:questions:after_${after || 'none'}:limit_${limit}:user_${email || 'anon'}`;
+
+    if (redisClient) {
+      const cachedData = await redisClient.get(cacheKey);
+      if (cachedData) {
+        return res.status(200).json(JSON.parse(cachedData));
+      }
+    }
 
     const query = {};
     if (after) {
@@ -32,11 +48,12 @@ export const fetchQuestions = async (req, res) => {
 
     const questions = await Question.find(query)
       .populate('author', 'username avatar email')
+      .populate('taggedAuthorities')
       .sort({ _id: -1 })
       .limit(limit)
       .lean();
 
-    const email = req.user?.email || req.query.email;
+    // Get user's votes if authenticated
     let userId = null;
     if (email) {
       const dbUser = await User.findOne({ email });
@@ -50,14 +67,15 @@ export const fetchQuestions = async (req, res) => {
       voteMap = new Map(votes.map(v => [v.questionId.toString(), v.value]));
     }
 
-    const questionsWithCommentCount = await Promise.all(
+    // Enrich questions with author info, comment count, and user vote
+    const enrichedQuestions = await Promise.all(
       questions.map(async (q) => {
         const commentCount = await Comment.countDocuments({ questionId: q._id });
         return {
           ...q,
-          authorName: q.author?.username || q.author?.name || 'UrbanFlow User',
-          authorHandle: (q.author?.username || q.author?.name || 'resident').toLowerCase().replace(/\s+/g, ''),
-          authorAvatar: q.author?.avatar || q.author?.picture || '',
+          authorName: q.author?.username || 'UrbanFlow User',
+          authorHandle: (q.author?.username || 'resident').toLowerCase().replace(/\s+/g, ''),
+          authorAvatar: q.author?.avatar || '',
           timeAgo: getTimeAgo(q.createdAt),
           commentCount,
           userVote: voteMap.get(q._id.toString()) || 0,
@@ -67,11 +85,18 @@ export const fetchQuestions = async (req, res) => {
 
     const nextCursor = questions.length > 0 ? questions[questions.length - 1]._id : null;
 
-    res.status(200).json({
-      data: questionsWithCommentCount,
+    const responsePayload = {
+      data: enrichedQuestions,
       nextCursor,
       hasMore: questions.length === limit,
-    });
+    };
+
+    // Store in cache for 60 seconds
+    if (redisClient) {
+      await redisClient.setEx(cacheKey, 60, JSON.stringify(responsePayload));
+    }
+
+    res.status(200).json(responsePayload);
   } catch (error) {
     res.status(500).json({ message: "Failed to fetch questions", error: error.message });
   }
@@ -79,36 +104,25 @@ export const fetchQuestions = async (req, res) => {
 
 export const fetchQuestionById = async (req, res) => {
   try {
-    const question = await Question.findById(req.params.id).populate('author', 'username avatar email');
+    const question = await Question.findById(req.params.id)
+      .populate('author', 'username avatar email')
+      .populate('taggedAuthorities');
     if (!question) return res.status(404).json({ error: "Question not found" });
 
-    // Ensure the frontend receives the deeply loaded comments exactly as the mock expects
     const comments = await Comment.find({ questionId: question._id, parentId: null }).sort({ createdAt: -1 }).lean();
     
-    // Check vote
-    let userVote = 0;
-    const email = req.user?.email || req.query.email;
-    if (email) {
-      const dbUser = await User.findOne({ email });
-      if (dbUser) {
-        const vote = await QuestionVote.findOne({ userId: dbUser._id, questionId: question._id }).lean();
-        if (vote) userVote = vote.value;
-      }
-    }
-
-    // Convert Mongoose doc to plain object and inject mock variables expected by frontend
+    const questionObj = question.toObject();
     const postData = {
-      ...question.toObject(),
-      userVote,
-      authorName: question.author?.username || question.author?.name || 'UrbanFlow User',
-      authorHandle: (question.author?.username || question.author?.name || 'resident').toLowerCase().replace(/\s+/g, ''),
-      authorAvatar: question.author?.avatar || question.author?.picture || '',
-      timeAgo: getTimeAgo(question.createdAt),
+      ...questionObj,
+      authorName: questionObj.author?.username || 'UrbanFlow User',
+      authorHandle: (questionObj.author?.username || 'resident').toLowerCase().replace(/\s+/g, ''),
+      authorAvatar: questionObj.author?.avatar || '',
+      timeAgo: getTimeAgo(questionObj.createdAt),
       comments: comments.map(c => ({
         ...c,
         id: c._id.toString(),
         authorName: c.authorName || 'User',
-        authorHandle: 'resident',
+        authorHandle: (c.authorName || 'user').toLowerCase().replace(/\s+/g, ''),
         text: c.body,
         timeAgo: getTimeAgo(c.createdAt)
       }))
@@ -122,18 +136,34 @@ export const fetchQuestionById = async (req, res) => {
 
 export const createQuestion = async (req, res) => {
   try {
-    const { title, description, image } = req.body;
-    
-    // Simulate user extraction from auth middleware or body
+    const { title, description, image, taggedAuthorities } = req.body;
+
+    // Extract user info from auth middleware or request body
     const email = req.body.author?.email || "mock@domain.com";
+    const authorName = req.body.author?.name || req.body.author?.nickname || "Anonymous";
+    const authorAvatar = req.body.author?.picture || null;
 
     let dbUser = await User.findOne({ email });
     if (!dbUser) {
-        dbUser = await User.create({
-            username: req.body.author?.name || "Anonymous",
-            email: email,
-            auth0Id: req.body.author?.sub || 'mock_auth0_id_' + Date.now()
-        });
+      dbUser = await User.create({
+        username: authorName,
+        email: email,
+        auth0Id: req.body.author?.sub || 'mock_auth0_id_' + Date.now(),
+        avatar: authorAvatar
+      });
+    } else {
+      // Update username and avatar if they were previously generic or missing
+      const updates = {};
+      if (authorName && authorName !== 'Anonymous' && (!dbUser.username || dbUser.username.startsWith('Anonymous'))) {
+        updates.username = authorName;
+      }
+      if (authorAvatar && (!dbUser.avatar || dbUser.avatar === '')) {
+        updates.avatar = authorAvatar;
+      }
+      if (Object.keys(updates).length > 0) {
+        await User.findByIdAndUpdate(dbUser._id, updates);
+        dbUser = await User.findById(dbUser._id);
+      }
     }
 
     const newQuestion = await Question.create({
@@ -141,9 +171,68 @@ export const createQuestion = async (req, res) => {
       title: title,
       description: description,
       image: image || [],
+      taggedAuthorities: taggedAuthorities || [],
     });
 
+    // Invalidate Feed Cache
+    const redisClient = getRedisClient();
+    if (redisClient) {
+      const keys = await redisClient.keys('urbanconnect:questions:*');
+      if (keys.length > 0) {
+        await redisClient.del(keys);
+      }
+    }
+
     res.status(201).json({ message: "Question uploaded to database", data: newQuestion });
+
+    // Fire-and-forget: AI Civic Analysis (sentiment, urgency, misinformation, clustering)
+    (async () => {
+      try {
+        const pyAgentUrl = process.env.PYTHON_SERVER;
+
+        // Extract city from tagged authorities if available, otherwise default to Prayagraj
+        let city = "Prayagraj";
+        if (taggedAuthorities?.length) {
+          const authority = await Administration.findById(taggedAuthorities[0]).lean();
+          if (authority?.city) city = authority.city;
+        }
+
+        const payload = {
+          postId: newQuestion._id.toString(),
+          title: title,
+          description: description,
+          imageUrls: image || [],
+          city: city
+        };
+        
+        console.log(`\n[AGENT DISPATCH] Sending Post ${newQuestion._id} to Python Agent for analysis...`);
+        console.log(`[AGENT DISPATCH] Payload Base: Title "${title}", City: "${city}"`);
+
+        const aiResponse = await axios.post(`${pyAgentUrl}/analyze-post`, payload);
+
+        const aiData = aiResponse.data;
+        console.log(`[AGENT RECEIVE] Received analysis for Post ${newQuestion._id}. Status: ${aiData.status}`);
+        if (aiData.status === "success") {
+          await Question.findByIdAndUpdate(newQuestion._id, {
+            aiAnalysis: {
+              sentiment: aiData.sentiment,
+              sentimentScore: aiData.sentiment_score,
+              urgency: aiData.urgency,
+              postType: aiData.post_type,
+              isMisinformation: aiData.is_misinformation ?? null,
+              contextNote: aiData.context_note ?? null,
+              clusterId: aiData.cluster_id ?? null,
+              analyzedAt: new Date()
+            },
+            embedding: aiData.embedding || null
+          });
+          console.log(`[CivicAnalysis] Post ${newQuestion._id} analyzed: ${aiData.post_type}, sentiment=${aiData.sentiment}`);
+        }
+      } catch (err) {
+        console.error(`[CivicAnalysis] Failed for post ${newQuestion._id}:`, err.message);
+      }
+    })();
+
   } catch (error) {
     res.status(500).json({ message: "Failed to create question", error: error.message });
   }
@@ -164,17 +253,17 @@ export const uploadImage = async (req, res) => {
 export const postComment = async (req, res) => {
   try {
     const { comment, questionId, parentId } = req.body;
-    
+
     // Simulate user extraction from auth middleware or body
     const email = req.body.authorEmail || req.user?.email || "commenter@domain.com";
-    
+
     let dbUser = await User.findOne({ email });
     if (!dbUser) {
-        dbUser = await User.create({
-           username: req.body.authorName || "Anonymous Replier",
-           email: email,
-           auth0Id: 'mock_auth0_id_cmt_' + Date.now()
-        });
+      dbUser = await User.create({
+        username: req.body.authorName || email.split('@')[0],
+        email: email,
+        auth0Id: 'mock_auth0_id_cmt_' + Date.now()
+      });
     }
 
     const newComment = await Comment.create({
@@ -192,9 +281,31 @@ export const postComment = async (req, res) => {
       await Comment.findByIdAndUpdate(parentId, { $inc: { replyCount: 1 } });
     }
 
+    // Invalidate Feed Cache
+    const redisClient = getRedisClient();
+    if (redisClient) {
+      const keys = await redisClient.keys('urbanconnect:questions:*');
+      if (keys.length > 0) {
+        await redisClient.del(keys);
+      }
+    }
+
     res.status(201).json({ message: "Comment Added", newComment });
   } catch (error) {
     res.status(500).json({ message: "Failed to post comment", error: error.message });
+  }
+};
+
+export const fetchAuthoritiesByCity = async (req, res) => {
+  try {
+    const { city } = req.params;
+    if (!city) {
+      return res.status(400).json({ error: "City is required" });
+    }
+    const authorities = await Administration.find({ city: { $regex: new RegExp('^' + city + '$', 'i') } }).lean();
+    res.status(200).json(authorities);
+  } catch (error) {
+    res.status(500).json({ message: "Failed to fetch authorities", error: error.message });
   }
 };
 
@@ -208,7 +319,7 @@ export const getComments = async (req, res) => {
 
     let query = { questionId, parentId: null };
     if (after) {
-      query._id = { $lt: after }; 
+      query._id = { $lt: after };
     }
 
     let comments = await Comment.find(query)
@@ -219,23 +330,23 @@ export const getComments = async (req, res) => {
     // Mock user auth layer logic for mapping saved and userVotes
     const email = req.user?.email || req.query.email;
     if (email) {
-       const user = await User.findOne({ email });
-       if (user) {
-         const commentIds = comments.map(c => c._id);
-         const votes = await Vote.find({ userId: user._id, commentId: { $in: commentIds } }).lean();
-         const saves = await Saved.find({ userId: user._id, commentId: { $in: commentIds } }).lean();
-         
-         const voteMap = new Map(votes.map(v => [v.commentId.toString(), v.value]));
-         const saveSet = new Set(saves.map(s => s.commentId.toString()));
+      const user = await User.findOne({ email });
+      if (user) {
+        const commentIds = comments.map(c => c._id);
+        const votes = await Vote.find({ userId: user._id, commentId: { $in: commentIds } }).lean();
+        const saves = await Saved.find({ userId: user._id, commentId: { $in: commentIds } }).lean();
 
-         comments = comments.map(c => ({
-           ...c,
-           userVote: voteMap.get(c._id.toString()) || 0,
-           saved: saveSet.has(c._id.toString())
-         }));
-       }
+        const voteMap = new Map(votes.map(v => [v.commentId.toString(), v.value]));
+        const saveSet = new Set(saves.map(s => s.commentId.toString()));
+
+        comments = comments.map(c => ({
+          ...c,
+          userVote: voteMap.get(c._id.toString()) || 0,
+          saved: saveSet.has(c._id.toString())
+        }));
+      }
     } else {
-       comments = comments.map(c => ({ ...c, userVote: 0, saved: false }));
+      comments = comments.map(c => ({ ...c, userVote: 0, saved: false }));
     }
 
     const nextCursor = comments.length > 0 ? comments[comments.length - 1]._id : null;
@@ -252,7 +363,7 @@ export const getReplies = async (req, res) => {
 
     let query = { parentId };
     if (after) {
-      query._id = { $lt: after }; 
+      query._id = { $lt: after };
     }
 
     let replies = await Comment.find(query)
@@ -263,23 +374,23 @@ export const getReplies = async (req, res) => {
     // Mock user auth layer logic for mapping saved and userVotes
     const email = req.user?.email || req.query.email;
     if (email) {
-       const user = await User.findOne({ email });
-       if (user) {
-         const replyIds = replies.map(r => r._id);
-         const votes = await Vote.find({ userId: user._id, commentId: { $in: replyIds } }).lean();
-         const saves = await Saved.find({ userId: user._id, commentId: { $in: replyIds } }).lean();
-         
-         const voteMap = new Map(votes.map(v => [v.commentId.toString(), v.value]));
-         const saveSet = new Set(saves.map(s => s.commentId.toString()));
+      const user = await User.findOne({ email });
+      if (user) {
+        const replyIds = replies.map(r => r._id);
+        const votes = await Vote.find({ userId: user._id, commentId: { $in: replyIds } }).lean();
+        const saves = await Saved.find({ userId: user._id, commentId: { $in: replyIds } }).lean();
 
-         replies = replies.map(r => ({
-           ...r,
-           userVote: voteMap.get(r._id.toString()) || 0,
-           saved: saveSet.has(r._id.toString())
-         }));
-       }
+        const voteMap = new Map(votes.map(v => [v.commentId.toString(), v.value]));
+        const saveSet = new Set(saves.map(s => s.commentId.toString()));
+
+        replies = replies.map(r => ({
+          ...r,
+          userVote: voteMap.get(r._id.toString()) || 0,
+          saved: saveSet.has(r._id.toString())
+        }));
+      }
     } else {
-       replies = replies.map(r => ({ ...r, userVote: 0, saved: false }));
+      replies = replies.map(r => ({ ...r, userVote: 0, saved: false }));
     }
 
     const nextCursor = replies.length > 0 ? replies[replies.length - 1]._id : null;
@@ -291,25 +402,29 @@ export const getReplies = async (req, res) => {
 
 export const patchVote = async (req, res) => {
   try {
-    const { commentId, value } = req.body;
-    if (!commentId) return res.status(400).json({ error: "Missing commentId" });
+    const { commentId, questionId, value } = req.body;
+    if (!commentId && !questionId) return res.status(400).json({ error: "Missing commentId or questionId" });
 
     // Simulate Auth
     const email = req.user?.email || req.body.email || "mock@domain.com";
     let user = await User.findOne({ email });
     if (!user) {
-        user = await User.create({
-            username: req.body.authorName || "Anonymous Voter",
-            email: email,
-            auth0Id: 'mock_auth0_id_vote_' + Date.now()
-        });
+      user = await User.create({
+        username: req.body.authorName || email.split('@')[0],
+        email: email,
+        auth0Id: 'mock_auth0_id_vote_' + Date.now()
+      });
     }
 
     let delta = 0;
-    const existingVote = await Vote.findOne({ userId: user._id, commentId });
+    const query = { userId: user._id };
+    if (commentId) query.commentId = commentId;
+    if (questionId) query.questionId = questionId;
+
+    const existingVote = await Vote.findOne(query);
 
     if (!existingVote && value !== 0) {
-      await Vote.create({ userId: user._id, commentId, value });
+      await Vote.create({ ...query, value });
       delta = value;
     } else if (existingVote && value === 0) {
       await existingVote.deleteOne();
@@ -318,12 +433,17 @@ export const patchVote = async (req, res) => {
       delta = value - existingVote.value;
       existingVote.value = value;
       await existingVote.save();
+    } else if (existingVote && existingVote.value === value) {
+      // Vote already exists with the same value, no-op or toggle off (user preference)
+      // Here we assume it toggles off if same value is sent again, or just stays same
+      // Let's stick to the current logic: if value matches, no change.
+      return res.status(200).json({ message: "No change", userVote: value });
     }
 
     const updatedComment = await Comment.findByIdAndUpdate(
       commentId,
       { $inc: { votes: delta } },
-      { returnDocument: 'after' }
+      { new: true }
     ).lean();
 
     res.status(200).json({ message: "Vote Updated", userVote: value, updatedComment });
@@ -341,11 +461,11 @@ export const patchQuestionVote = async (req, res) => {
     const email = req.user?.email || req.body.email || "mock@domain.com";
     let user = await User.findOne({ email });
     if (!user) {
-        user = await User.create({
-            username: req.body.authorName || "Anonymous Voter",
-            email: email,
-            auth0Id: 'mock_auth0_id_qvote_' + Date.now()
-        });
+      user = await User.create({
+        username: req.body.authorName || email.split('@')[0],
+        email: email,
+        auth0Id: 'mock_auth0_id_qvote_' + Date.now()
+      });
     }
 
     let delta = 0;
@@ -369,22 +489,63 @@ export const patchQuestionVote = async (req, res) => {
       { returnDocument: 'after' }
     ).lean();
 
+    // Invalidate Feed Cache
+    const redisClient = getRedisClient();
+    if (redisClient) {
+      const keys = await redisClient.keys('urbanconnect:questions:*');
+      if (keys.length > 0) {
+        await redisClient.del(keys);
+      }
+    }
+
     res.status(200).json({ message: "Question Vote Updated", userVote: value, updatedQuestion });
   } catch (err) {
     res.status(500).json({ error: "Failed to update question vote", details: err.message });
   }
 };
 
+export const toggleSave = async (req, res) => {
+  try {
+    const { commentId } = req.body;
+    if (!commentId) return res.status(400).json({ error: "Missing commentId" });
+
+    const email = req.user?.email || req.body.email || "mock@domain.com";
+    let user = await User.findOne({ email });
+    if (!user) {
+      user = await User.create({
+        username: req.body.authorName || email.split('@')[0],
+        email: email,
+        auth0Id: 'mock_auth0_id_save_' + Date.now()
+      });
+    }
+
+    const existing = await Saved.findOne({ userId: user._id, commentId });
+
+    if (existing) {
+      await existing.deleteOne();
+      console.log(`[SAVE] Unsaved comment ${commentId} for user ${email}`);
+      return res.status(200).json({ saved: false, message: "Comment unsaved" });
+    } else {
+      await Saved.create({ userId: user._id, commentId });
+      console.log(`[SAVE] Saved comment ${commentId} for user ${email}`);
+      return res.status(201).json({ saved: true, message: "Comment saved" });
+    }
+  } catch (err) {
+    console.error('[SAVE] Error toggling save:', err.message);
+    res.status(500).json({ error: "Failed to toggle save", details: err.message });
+  }
+};
+
 export const searchQuestions = async (req, res) => {
   try {
     const search = req.body.search || req.query.search;
-    
+
     if (!search || search.trim() === "") {
-        return res.status(200).json([]);
+      return res.status(200).json([]);
     }
 
     const regex = new RegExp(search, 'i');
-    
+
     let searchResults = await Question.find({
       $or: [
         { title: { $regex: regex } },
@@ -392,16 +553,17 @@ export const searchQuestions = async (req, res) => {
         { tags: { $regex: regex } }
       ]
     })
-    .populate('author', 'username avatar email')
-    .sort({ _id: -1 })
-    .lean();
+      .populate('author', 'username avatar email')
+      .populate('taggedAuthorities')
+      .sort({ _id: -1 })
+      .lean();
 
     searchResults = searchResults.map(q => ({
-        ...q,
-        authorName: q.author?.username || q.author?.name || 'UrbanFlow User',
-        authorHandle: (q.author?.username || q.author?.name || 'resident').toLowerCase().replace(/\s+/g, ''),
-        authorAvatar: q.author?.avatar || q.author?.picture || '',
-        timeAgo: getTimeAgo(q.createdAt),
+      ...q,
+      authorName: q.author?.username || q.author?.name || 'UrbanFlow User',
+      authorHandle: (q.author?.username || q.author?.name || 'resident').toLowerCase().replace(/\s+/g, ''),
+      authorAvatar: q.author?.avatar || q.author?.picture || '',
+      timeAgo: getTimeAgo(q.createdAt),
     }));
 
     res.status(200).json(searchResults);
@@ -421,9 +583,10 @@ export const fetchUserProfile = async (req, res) => {
     // Fetch user's posts
     let userPosts = await Question.find({ author: dbUser._id })
       .populate('author', 'username avatar email')
+      .populate('taggedAuthorities')
       .sort({ createdAt: -1 })
       .lean();
-    
+
     // Inject PostCard schema fields
     userPosts = await Promise.all(userPosts.map(async (q) => {
       const commentCount = await Comment.countDocuments({ questionId: q._id });
@@ -447,12 +610,13 @@ export const fetchUserProfile = async (req, res) => {
     // Fetch user's liked posts
     const likes = await QuestionVote.find({ userId: dbUser._id, value: 1 }).lean();
     const likedQuestionIds = likes.map(v => v.questionId);
-    
+
     let likedPosts = await Question.find({ _id: { $in: likedQuestionIds } })
       .populate('author', 'username avatar email')
+      .populate('taggedAuthorities')
       .sort({ createdAt: -1 })
       .lean();
-      
+
     likedPosts = await Promise.all(likedPosts.map(async (q) => {
       const commentCount = await Comment.countDocuments({ questionId: q._id });
       return {
@@ -466,10 +630,38 @@ export const fetchUserProfile = async (req, res) => {
       };
     }));
 
+    // Fetch user's saved comments with parent question context
+    const savedDocs = await Saved.find({ userId: dbUser._id }).sort({ createdAt: -1 }).lean();
+    const savedCommentIds = savedDocs.map(s => s.commentId);
+    console.log(`[PROFILE] Fetching saved comments for ${email}, found ${savedDocs.length} saved items`);
+
+    let savedComments = await Comment.find({ _id: { $in: savedCommentIds } }).lean();
+
+    // Enrich each saved comment with its parent question info
+    savedComments = await Promise.all(savedComments.map(async (c) => {
+      const parentQuestion = await Question.findById(c.questionId)
+        .populate('author', 'username avatar email')
+        .lean();
+      return {
+        ...c,
+        timeAgo: getTimeAgo(c.createdAt),
+        savedAt: savedDocs.find(s => s.commentId.toString() === c._id.toString())?.createdAt,
+        parentQuestion: parentQuestion ? {
+          _id: parentQuestion._id,
+          title: parentQuestion.title,
+          authorName: parentQuestion.author?.username || 'UrbanFlow User',
+          authorAvatar: parentQuestion.author?.avatar || '',
+        } : null
+      };
+    }));
+
+    console.log(`[PROFILE] Returning profile for ${email}: ${userPosts.length} posts, ${likedPosts.length} likes, ${savedComments.length} saved`);
+
     res.status(200).json({
       posts: userPosts,
       replies: userReplies,
-      likes: likedPosts
+      likes: likedPosts,
+      saved: savedComments
     });
   } catch (err) {
     res.status(500).json({ error: "Failed to fetch user profile", details: err.message });
