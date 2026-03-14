@@ -1,37 +1,95 @@
-# UrbanFlow: The Integrated AI-Powered Civic Management Suite
+<p align="center">
+  <img src="ReadmeMedia/React_Native/Dashboard/UrbanFlow_Dashboard.jpg" width="180" alt="UrbanFlow Dashboard">
+</p>
 
-**SANKALP Hackathon 2026**  
-**Team:** Shreyansh Sachan | Ishwar | Aryan Gupta | Arushi Nayak
+<h1 align="center">UrbanFlow</h1>
+<h3 align="center">The Integrated AI-Powered Civic Management Suite</h3>
+
+<p align="center">
+  <strong>SANKALP Hackathon 2026</strong><br>
+  Built by <strong>Shreyansh Sachan</strong> · <strong>Ishwar</strong> · <strong>Aryan Gupta</strong> · <strong>Arushi Nayak</strong>
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Platform-Android%20%7C%20iOS%20%7C%20Web-blue?style=for-the-badge" alt="Platform">
+  <img src="https://img.shields.io/badge/AI%20Engine-Multi--Agent%20LLM-blueviolet?style=for-the-badge" alt="AI Engine">
+  <img src="https://img.shields.io/badge/Satellite-Google%20Earth%20Engine-success?style=for-the-badge" alt="GEE">
+  <img src="https://img.shields.io/badge/Realtime-Firebase%20RTDB-orange?style=for-the-badge" alt="Firebase">
+</p>
 
 ---
 
-## Project Overview
+> **UrbanFlow** is a production-grade, AI-first civic operating system that transforms the relationship between citizens, municipal administration, local leaders, and field operations. It deploys a synchronized, three-tier ecosystem driven by **Large Language Models**, **multi-agent AI orchestration**, **real-time streaming**, **computer vision**, **satellite analytics**, and **geospatial intelligence**.
 
-UrbanFlow is a production-grade, AI-first civic operating system that transforms the relationship between citizens, municipal administration, local leaders, and field operations. Traditional urban governance suffers from fragmented communication, manual processes, reactive decision-making, and declining public trust. UrbanFlow addresses these systemic challenges by deploying a synchronized, three-tier ecosystem driven by Large Language Models (LLMs), multi-agent AI orchestration, real-time streaming, computer vision, satellite analytics, and geospatial intelligence.
+---
 
-Every layer of the system is designed around the principle that **AI should be the first responder** — triaging, classifying, routing, and verifying civic actions before a human ever needs to intervene.
+## System Workflow — End-to-End Architecture
 
-The system is divided into three primary clients:
-1. **Citizen Portal** — AI-assisted mobile application for reporting, safety, employment, and community
-2. **Administrative Command Hub** — AI-driven web dashboard for municipal decision-makers and administrators
-3. **Field Workforce Interface** — Mobile/web task manager for on-ground workers with AI-verified proof of work
+```mermaid
+graph TB
+    subgraph CITIZENS["👤 CITIZEN LAYER — React Native Mobile App"]
+        C1["SisterHood<br/>AI Safe Routes · Acoustic SOS"]
+        C2["CivicConnect<br/>AI Grievance Reporting"]
+        C3["StreetGig<br/>AI Job & Skill Gap Analysis"]
+        C4["KindShare<br/>AI NGO Coordination"]
+        C5["UrbanConnect<br/>Civic Forum · AI Fact-Check"]
+    end
+
+    subgraph AI["AI Engine (Python / FastAPI)"]
+        direction TB
+        A1[Multi-Agent Orchestration]
+        A2[Vision AI]
+        A3[NLP Pipeline]
+        A4[Embedding Engine]
+        A5[Whisper STT]
+    end
+
+    subgraph ADMIN["🖥️ ADMIN LAYER — React.js Web Dashboard"]
+        AD1["Operational Dashboard<br/>Central Command Systems"]
+        AD2["Complaint Heatmap<br/>Geohash-Clustered Severity Map"]
+        AD3["GeoScope<br/>Satellite Environmental Intelligence"]
+        AD4["Civic Analytics<br/>Sentiment · Clusters · Misinformation"]
+        AD5["Staff Management<br/>Task Assignment · Work Verification"]
+    end
+
+    subgraph DATA["💾 DATA LAYER"]
+        D1["MongoDB<br/>(Documents + Vector Search)"]
+        D2["Firebase RTDB<br/>(Sub-100ms Real-time)"]
+        D3["Firestore<br/>(Geohash Spatial Index)"]
+        D4["Redis<br/>(Cache + Rate Limiting)"]
+        D5["Cloudinary<br/>(Media CDN)"]
+    end
+
+    subgraph FIELD["👷 FIELD WORKER LAYER"]
+        F1["AI-Prioritized Task Queue"]
+        F2["GPS-Verified Photo Proof"]
+        F3["AI Resolution Validation"]
+    end
+
+    CITIZENS -->|"REST / WebSocket"| AI_ENGINE
+    AI_ENGINE -->|"Structured Intelligence"| ADMIN
+    ADMIN -->|"Task Assignment via RTDB"| FIELD
+    FIELD -->|"AI-Verified Resolution"| AI_ENGINE
+    AI_ENGINE <-->|"Read / Write"| DATA
+    CITIZENS -->|"SOS · Live Tracking"| DATA
+```
 
 ---
 
 ## Problem Statements Addressed
 
-### Category 1 & 2 — Urban Civic Services
+### Urban Civic Services
 Citizens lack unified, intelligent channels for reporting grievances, accessing safe navigation, finding employment, and coordinating community resources. Municipal systems operate in silos with no AI layer to triage, route, or verify work — resulting in slow response, low transparency, and poor outcomes.
 
-### Category 3 — AI for Local Leadership, Decision Intelligence & Public Trust
-Local leaders operate at the front line of service delivery, yet most grassroots governance processes remain fragmented and unstructured. Citizen sentiment, grievance data, work completion status, and scheme progress are scattered across verbal complaints, paper records, and social media. UrbanFlow's **Civic Intelligence Dashboard** directly addresses this with:
+### AI for Local Leadership, Decision Intelligence & Public Trust
+Local leaders operate at the front line of service delivery, yet grassroots governance processes remain fragmented and unstructured. UrbanFlow's **Civic Intelligence Dashboard** directly addresses this with:
 
 - AI-powered structuring of citizen issues from voice, text, image, and social media inputs
 - Intelligent issue prioritization using ML-based urgency, impact, and recurrence scoring
 - AI-validated geo-tagged, time-stamped verification of field work completion
-- Natural Language Processing (NLP) pipelines for social media sentiment and misinformation detection
-- AI-assisted generation of verified public communications and official announcements
-- Real-time dashboards exposing execution status and citizen trust indicators to local leadership
+- NLP pipelines for social media sentiment and misinformation detection
+- AI-assisted generation of verified public communications
+- Real-time dashboards exposing execution status and citizen trust indicators
 
 ---
 
@@ -42,13 +100,12 @@ Local leaders operate at the front line of service delivery, yet most grassroots
 The mobile interface is designed for accessibility and rapid response, enabling citizens to interact with AI-powered civic tools from a single unified surface.
 
 <p align="center">
-  <img src="ReadmeMedia/React_Native/Dashboard/UrbanFlow_Dashboard.jpg" width="230" alt="UrbanFlow mobile home screen showing the main feature cards — SisterHood, CivicConnect, StreetGig, KindShare, and UrbanConnect — with AI-powered status indicators">
-  <img src="ReadmeMedia/React_Native/civic_connect/Report_Submission.jpeg" width="230" alt="CivicConnect AI grievance reporting screen with camera upload, auto-detected issue category badge, and severity indicator generated by AI">
-  <img src="ReadmeMedia/React_Native/SisterHood/SisterHood_Home.jpg" width="230" alt="SisterHood AI safe route navigation screen showing a color-coded risk heatmap overlaid on the map with an active SOS button">
-  <img src="ReadmeMedia/React_Native/StreetGig/StreetGig_Job_Reccomendation.jpg" width="230" alt="StreetGig job discovery screen with AI Match badges on job cards, distance indicators, and filter chips for time slot and budget">
+  <img src="ReadmeMedia/React_Native/Dashboard/UrbanFlow_Dashboard.jpg" width="200" alt="UrbanFlow Dashboard">
+  &nbsp;&nbsp;
+  <img src="ReadmeMedia/React_Native/Notification.jpg" width="200" alt="Real-time Resolution Notifications">
 </p>
 <p align="center">
-  <em>Left to Right: Dashboard Home · CivicConnect AI Reporting · SisterHood Safe Navigation · StreetGig AI Job Matching</em>
+  <em>Left: Dashboard Home with feature cards (SisterHood, CivicConnect, StreetGig, KindShare, UrbanConnect) · Right: Real-time notification feed showing grievance resolution updates</em>
 </p>
 
 ---
@@ -58,15 +115,32 @@ The mobile interface is designed for accessibility and rapid response, enabling 
 The centralized command hub where municipal authorities leverage AI-generated summaries, anomaly alerts, live maps, and satellite data to orchestrate city operations.
 
 <p align="center">
-  <img src="PLACEHOLDER_IMAGE_PATH_ADMIN_DASHBOARD" width="45%" alt="Admin master dashboard showing AI-triaged grievance totals, resolution rate gauges, category distribution pie charts, and an alert feed of high-urgency complaints">
-  <img src="PLACEHOLDER_IMAGE_PATH_ADMIN_MAP" width="45%" alt="Live complaint heatmap with geohash-clustered grievance pins, color-coded by AI-determined severity, with a filter sidebar for department and date range">
+  <img src="ReadmeMedia/Administration/Admin_Panel.png" width="90%" alt="CityAdmin Operational Dashboard showing Central Command Systems: GeoScope, Women Safety, AI Safety Audits, Native SOS Command, Civic Analytics — with Departmental Operations: Infrastructure, Water Supply, Smart Waste, Electricity, Fire & Safety">
 </p>
 <p align="center">
-  <img src="PLACEHOLDER_IMAGE_PATH_GEOSCOPE" width="45%" alt="GeoScope satellite monitoring panel displaying NO2 pollution density bands, urban heat island thermal overlays, and deforestation change detection output from Google Earth Engine">
-  <img src="PLACEHOLDER_IMAGE_PATH_ADMIN_NGO" width="45%" alt="KindShare NGO admin portal showing active donation listings, AI-matched NGO assignments, pickup scheduling calendar, and impact statistics">
+  <em>Operational Dashboard — Central Command Systems with live status indicators and Departmental Operations overview</em>
+</p>
+
+<p align="center">
+  <img src="ReadmeMedia/Administration/ComplaintMap/Screenshot_2026-03-14_at_9.29.41_PM.png" width="45%" alt="Complaint heatmap view 1 — geohash-clustered grievance pins on a city map">
+  &nbsp;
+  <img src="ReadmeMedia/Administration/ComplaintMap/Screenshot_2026-03-14_at_9.29.57_PM.png" width="45%" alt="Complaint heatmap view 2 — zoomed-in severity-coded complaint clusters">
 </p>
 <p align="center">
-  <em>Top: AI-Triaged Master Dashboard and Live Complaint Heatmap · Bottom: GeoScope Satellite Intelligence and KindShare NGO Coordination Portal</em>
+  <em>Live Complaint Heatmap — Geohash-clustered grievances with AI-determined severity, filterable by department and date range</em>
+</p>
+
+---
+
+### GeoScope — Satellite Intelligence Panel
+
+<p align="center">
+  <img src="ReadmeMedia/Administration/GEE/GEE_analysis_options.png" width="45%" alt="GeoScope Environmental Monitoring module selector — Deforestation, Fire Alert, Coastal Erosion, Flood Watch, Air Pollutants, Surface Heat">
+  &nbsp;
+  <img src="ReadmeMedia/Administration/GEE/GEE_report.png" width="45%" alt="Flood Analysis Report showing SAR radar baseline vs detected flood extent with inundated area calculation and Sentinel-1 pass dates">
+</p>
+<p align="center">
+  <em>Left: Environmental Monitoring module selector (6 analysis types powered by Google Earth Engine) · Right: Flood Analysis Report using Sentinel-1 SAR data with radar baseline vs. detected flood extent</em>
 </p>
 
 ---
@@ -76,29 +150,43 @@ The centralized command hub where municipal authorities leverage AI-generated su
 A dedicated AI decision-support surface for local leaders and administrators, surfacing ground realities from both citizen-reported data and civic social media signals.
 
 <p align="center">
-  <img src="PLACEHOLDER_IMAGE_PATH_LEADERSHIP_OVERVIEW" width="45%" alt="Leadership AI overview dashboard showing top 10 prioritized issues ranked by AI urgency composite score, with impact radius estimates and recurrence frequency">
-  <img src="PLACEHOLDER_IMAGE_PATH_SENTIMENT_ANALYSIS" width="45%" alt="Social media sentiment analysis panel with a real-time emotion timeline, topic clustering of citizen discussions, misinformation alert cards, and ward-level trust score">
+  <img src="ReadmeMedia/Administration/Social_Media_AI_overview.png" width="90%" alt="Civic Analytics dashboard showing Analyzed Posts count, Average Sentiment score, Emerging Clusters, Misinformation count, Sentiment Distribution bars, Emerging Issues with cluster IDs, Misinformation Feed with flagged posts and AI Context Notes, and Analyzed Posts table with sentiment/urgency/type/cluster metadata">
 </p>
 <p align="center">
-  <img src="ReadmeMedia/React_Native/civic_connect/AI_Verification.jpeg" width="45%" alt="Field work verification screen showing uploaded photo proof from a worker with AI-generated authenticity score, GPS coordinate overlaid on map, and timestamp validation badge">
-  <img src="PLACEHOLDER_IMAGE_PATH_PUBLIC_COMM" width="45%" alt="AI public communication generator showing a drafted official announcement with supporting data citations, sentiment impact estimate, and a one-click publish panel">
-</p>
-<p align="center">
-  <em>Top: AI Issue Prioritization Engine and Citizen Sentiment Monitor · Bottom: AI Field Work Verifier and AI Communication Generator</em>
+  <em>Civic Analytics — Real-time sentiment distribution, emerging issue clusters, misinformation detection with AI-generated context notes, and a per-post analysis table</em>
 </p>
 
 ---
 
-### Staff and On-Ground Worker Interface
-
-Purpose-built views for municipal workers, fire staff, and first responders. AI assigns, routes, and verifies tasks — reducing administrative overhead to near zero.
+### Staff & Field Worker Management
 
 <p align="center">
-  <img src="ReadmeMedia/React_Native/civic_connect/Resolution_timeline.jpeg" width="45%" alt="Field worker task queue screen showing assigned grievances with AI-determined priority badges, distance from current GPS location, estimated travel time, and a one-tap navigation button">
-  <img src="ReadmeMedia/React_Native/civic_connect/Resolution_Verification.jpeg" width="45%" alt="Task resolution upload screen where the worker submits a geo-tagged, time-stamped photo. AI validates image authenticity and content match before marking the grievance resolved">
+  <img src="ReadmeMedia/Administration/Staff_Panel/Admin_Assigned_Staff_work.png" width="32%" alt="Smart Waste — Needs Action queue showing AI-verified high-priority complaint with photo, description, and Assign Team button">
+  &nbsp;
+  <img src="ReadmeMedia/Administration/Staff_Panel/Admin_choose_staff.png" width="32%" alt="Task Assignment panel showing available staff with proximity, task title pre-filled from AI analysis, priority level, auto-deadline, and Confirm Assignment button">
+  &nbsp;
+  <img src="ReadmeMedia/Administration/Staff_Panel/AdminResolvedwork.png" width="32%" alt="Smart Waste — Resolved tab showing completed tasks with AI-generated descriptions and resolution status">
 </p>
 <p align="center">
-  <em>Left: AI-Prioritized Task Queue with live routing · Right: AI-Validated Photo Proof of Resolution</em>
+  <em>Left: AI-triaged complaint queue (Needs Action) · Center: Staff assignment panel with proximity ranking and AI-generated task details · Right: Resolved complaints with AI verification</em>
+</p>
+
+<p align="center">
+  <img src="ReadmeMedia/Administration/StaffWork/Screenshot_2026-03-14_at_9.49.35_PM.png" width="90%" alt="Staff work overview panel">
+</p>
+<p align="center">
+  <em>Staff Work Overview — Track assigned, in-progress, and completed tasks across all field workers</em>
+</p>
+
+---
+
+### Women Safety — Police Command Panel
+
+<p align="center">
+  <img src="ReadmeMedia/Administration/Woman_safety/Police_Panel_for_women_safety.png" width="90%" alt="Police Panel for Women Safety — Live SOS Tracking with Active Signals, Voice SOS Recordings, live Google Maps view with SOS pin, AI Summary of distress pattern, and recommended actions">
+</p>
+<p align="center">
+  <em>Live SOS Command — Active distress signals on map, Voice SOS recordings with AI-generated summaries, distress pattern detection, and recommended emergency actions</em>
 </p>
 
 ---
@@ -109,50 +197,97 @@ Purpose-built views for municipal workers, fire staff, and first responders. AI 
 
 SisterHood is a real-time safety platform built on continuous AI inference and decentralized emergency coordination, primarily targeting women navigating urban environments.
 
-**AI Safe Route Engine**
-The routing system goes entirely beyond standard shortest-path GPS algorithms. It ingests a multi-factor safety index composed of: historical incident heatmaps sourced from civic reports and police APIs, real-time crowd density derived from anonymized location clustering, street lighting intensity scores mapped from satellite imagery, and time-of-day risk modifiers. A trained ML scoring model combines these features into a per-segment safety score, which is fed into a modified Dijkstra's algorithm that optimizes for safety-weighted cost rather than pure distance. The resulting route is rendered on a risk-heatmap overlay so the user can understand why a path was chosen.
+<p align="center">
+  <img src="ReadmeMedia/React_Native/SisterHood/SisterHood_Home.jpg" width="200" alt="SisterHood home screen with safety-scored route map, risk heatmap overlay, and SOS button">
+  &nbsp;&nbsp;
+  <img src="ReadmeMedia/React_Native/SisterHood/SisterHood_SOS_Triggered.jpg" width="200" alt="SisterHood SOS triggered — Securing Perimeter mode active, SOS Alert Nearby banner showing ~5m distance, dark map with alert pin, Record and Call buttons">
+  &nbsp;&nbsp;
+  <img src="ReadmeMedia/React_Native/SisterHood/SisterHood_SOS_Detrigger.jpg" width="200" alt="SisterHood SOS Deactivated dialog — Was this a false alarm? with Yes, False Alarm and No — Real Emergency options">
+</p>
+<p align="center">
+  <em>Left: AI safe route with risk heatmap · Center: SOS triggered — Securing Perimeter with nearby alert broadcast · Right: SOS deactivation with false alarm feedback loop</em>
+</p>
 
-**Acoustic Distress AI Monitor**
-Running entirely on-device using a lightweight TensorFlow Lite classification model, the acoustic monitor continuously processes microphone input at 16kHz via a sliding 3-second buffer. The model, trained on a labeled dataset of distress vocalizations, trigger words, and ambient soundscapes, outputs a confidence score every second. When confidence exceeds a configurable threshold for multiple consecutive frames, the system autonomously escalates to a full SOS workflow — requiring zero physical user interaction. This design is specifically intended for scenarios where manual SOS activation is impossible.
+#### Technical Deep-Dive
 
-**Decentralized Emergency Response Network**
-Upon SOS activation, three parallel actions are triggered simultaneously: (1) A POST to the backend API logs the incident with GPS coordinates, user identity, and a Firebase RTDB write that broadcasts to subscribed police dispatch systems. (2) A geofenced push notification broadcasts to a radius of nearby verified UrbanFlow users who opt into the community responder network, enabling immediate bystander assistance before official units arrive. (3) The SisterHood map surface activates a live tracking session, allowing trusted contacts to follow the user's location in real-time.
-
-**Companion Route Matching**
-An AI matching algorithm identifies other verified users traveling the same route within a ±10-minute departure window using vector similarity on encoded route segments. Users are matched and offered opt-in real-time coordination, creating a dynamic, organic safety network without requiring pre-registration of contacts.
+| Component | Technology | Implementation |
+|---|---|---|
+| **Safe Route Engine** | Modified Dijkstra's, Google Maps Platform | Multi-factor safety index: historical incident heatmaps, crowd density, street lighting from satellite imagery, time-of-day risk modifiers. Optimizes for safety-weighted cost, not pure distance. |
+| **Acoustic Distress Monitor** | TensorFlow Lite (on-device) | 16kHz mic input, 3-second sliding buffer, confidence scoring every second. Trained on labeled distress vocalizations. Zero-interaction SOS trigger on sustained high confidence. |
+| **Emergency Network** | Firebase RTDB, FCM, REST API | Parallel SOS: (1) Backend + police dispatch via RTDB, (2) geofenced push notifications to community responders, (3) live tracking for trusted contacts. |
+| **Companion Matching** | Vector similarity on route segments | Matches verified users traveling same route within ±10-min departure window. Opt-in real-time coordination. |
 
 ---
 
 ### 2. CivicConnect (EcoSnap) — AI-Triaged Unified Grievance Reporting
 
-CivicConnect replaces the highly siloed and manual approach to municipal complaints with a fully AI-automated pipeline covering waste management, electricity faults, water supply, road infrastructure, and fire safety.
+CivicConnect replaces siloed municipal complaints with a fully AI-automated pipeline covering waste management, electricity faults, water supply, road infrastructure, and fire safety.
 
-**Multimodal AI Intake**
-Citizens can file grievances using image uploads, free-text descriptions, or voice note transcription (converted to text via OpenAI Whisper). A vision-language AI model (built on Google Cloud Vertex AI) performs joint analysis on image + text, extracting: issue type classification, severity level (1–5), estimated impact area, and a plain-English description of what it detects (e.g., "Overflowing municipal dumpster with standing water visible"). This AI-generated structured record replaces the manual data entry step entirely.
+<p align="center">
+  <img src="ReadmeMedia/React_Native/civic_connect/Report_Submission.jpeg" width="200" alt="CivicConnect AI grievance reporting screen with camera upload and auto-generated issue classification">
+  &nbsp;&nbsp;
+  <img src="ReadmeMedia/React_Native/civic_connect/AI_Verification.jpeg" width="200" alt="AI verification screen showing uploaded photo proof with GPS validation and authenticity scoring">
+  &nbsp;&nbsp;
+  <img src="ReadmeMedia/React_Native/civic_connect/Resolution_timeline.jpeg" width="200" alt="Resolution timeline showing complaint lifecycle from submission to AI-verified resolution">
+  &nbsp;&nbsp;
+  <img src="ReadmeMedia/React_Native/civic_connect/Resolution_Verification.jpeg" width="200" alt="Resolution verification — field worker uploads geo-tagged photo proof, AI validates content match and location">
+</p>
+<p align="center">
+  <em>Left to Right: AI Grievance Report Submission · AI Photo Verification · Resolution Timeline · Field Worker Resolution Proof Upload</em>
+</p>
 
-**Intelligent Spam and Irrelevance Filtering**
-Before any grievance touches the municipal database, it passes through a multi-stage AI filter pipeline. Stage 1: a binary image relevance classifier rejects non-civic images (selfies, generic photos). Stage 2: a duplicate detection model using perceptual hashing and NLP embedding similarity identifies reports that are near-duplicates of existing open grievances and merges them rather than creating new records. Stage 3: a quality scoring model rejects submissions where the AI confidence is below threshold, prompting the citizen to re-upload with a clear image.
+#### AI Pipeline Architecture
 
-**Automated Departmental Routing and Assignment**
-Verified complaints are automatically routed to the correct department (sanitation, electricity, road, fire, water) using a multi-label classification model. Within each department, the system queries the spatial index of available field workers and assigns the complaint to the nearest worker whose current task queue permits. Assignment is written to the worker's Firebase RTDB task feed in real-time.
+```mermaid
+graph LR
+    A["Citizen Upload<br/>(Image + Text + Voice)"] --> B["Vision-Language AI<br/>(Vertex AI)"]
+    B --> C["Auto-Classification<br/>Type / Severity / Impact"]
+    C --> D{"Spam Filter Pipeline"}
+    D -->|Stage 1| E["Image Relevance<br/>Classifier"]
+    D -->|Stage 2| F["Duplicate Detection<br/>(Hash + Embedding)"]
+    D -->|Stage 3| G["Quality Scoring"]
+    E --> H["Verified Complaint"]
+    F --> H
+    G --> H
+    H --> I["Auto-Route to Dept<br/>(Multi-label)"]
+    I --> J["Nearest Worker<br/>(Spatial Index)"]
+    J --> K["Firebase RTDB Push"]
+```
 
-**AI Resolution Verification**
-When a field worker marks a grievance resolved and uploads photographic proof, an AI verification agent performs a before/after spatial consistency check: it validates that the photo GPS coordinates match the grievance location, checks timestamp authenticity via metadata, and runs a visual similarity model to confirm that the reported issue (e.g., pothole, dumpster overflow) is no longer visible in the submitted image. Only AI-approved submissions update the grievance status — preventing false resolution.
+#### Technical Deep-Dive
+
+| Component | Technology | Implementation |
+|---|---|---|
+| **Multimodal Intake** | Vertex AI (Vision-Language), OpenAI Whisper | Joint image + text analysis extracts: issue type, severity (1–5), impact area, plain-English description. Voice to text via Whisper. |
+| **Spam Filtering** | Binary classifier, perceptual hashing, NLP embeddings | 3-stage: (1) non-civic image rejection, (2) near-duplicate merging via hash + embedding similarity, (3) quality threshold enforcement. |
+| **Department Routing** | Multi-label classification model | Auto-routes to sanitation / electricity / road / fire / water. Queries spatial index for nearest available worker. |
+| **AI Resolution Verification** | Computer Vision, GPS metadata, timestamp validation | Before/after spatial consistency: GPS match, timestamp authenticity, visual similarity confirming issue no longer present. |
 
 ---
 
 ### 3. GeoScope — AI-Augmented Satellite Environmental Intelligence
 
-GeoScope is a macro-scale environmental monitoring system built on Google Earth Engine's petabyte-scale satellite data infrastructure, extended with custom AI inference pipelines.
+GeoScope is a macro-scale environmental monitoring system built on **Google Earth Engine's** petabyte-scale satellite data infrastructure, extended with custom AI inference pipelines.
 
-**Atmospheric Pollution Monitoring**
-GeoScope ingests Sentinel-5P satellite imagery streamed through the Google Earth Engine JavaScript and Python APIs. An AI analysis pipeline processes band-specific absorption data (SO2, NO2, CO, aerosol optical depth) and generates interpolated pollution density maps at a 1km² grid resolution. These maps are updated on a configurable cadence and overlaid on the administrative dashboard with AI-generated risk commentary explaining anomalies (e.g., a sudden NO2 spike near an industrial zone flagged as a potential regulatory violation).
+<p align="center">
+  <img src="ReadmeMedia/Administration/GEE/GEE_analysis_options.png" width="45%" alt="GeoScope module selector — 6 environmental analysis modules">
+  &nbsp;
+  <img src="ReadmeMedia/Administration/GEE/GEE_report.png" width="45%" alt="GeoScope Flood Analysis Report with SAR radar data">
+</p>
+<p align="center">
+  <em>Left: 6-module environmental analysis suite · Right: Live Flood Analysis using Synthetic Aperture Radar (Sentinel-1)</em>
+</p>
 
-**Urban Heat Island (UHI) Detection**
-The system processes Landsat-8 thermal infrared band data to compute Land Surface Temperature (LST) using the Split-Window Algorithm. An AI segmentation model identifies urban heat island zones by comparing LST against the city's mean baseline and flags areas exceeding threshold differentials. These zones are cross-referenced with the city's infrastructure data to recommend targeted interventions: additional green cover, reflective roofing, or cooling infrastructure deployment.
+#### Technical Deep-Dive
 
-**Flood Risk and Deforestation Change Detection**
-Using multi-temporal SAR (Synthetic Aperture Radar) imagery from Sentinel-1, GeoScope runs an AI change detection model that identifies surface water expansion events (potential flooding) with high temporal precision even through cloud cover — a limitation that prevents optical-only solutions. A separate NDVI (Normalized Difference Vegetation Index) differential model detects localized deforestation events between satellite acquisition cycles.
+| Module | Data Source | AI Processing |
+|---|---|---|
+| **Air Pollutants** | Sentinel-5P (SO₂, NO₂, CO, Aerosol) | Interpolated pollution density maps at 1km² resolution. AI-generated anomaly commentary. |
+| **Surface Heat (UHI)** | Landsat-8 Thermal IR | Split-Window Algorithm for LST. AI segmentation identifies urban heat islands vs. baseline. |
+| **Flood Watch** | Sentinel-1 SAR | Multi-temporal SAR change detection for surface water expansion. Cloud-penetrating. |
+| **Deforestation** | NDVI differential analysis | Localized deforestation event detection between satellite acquisition cycles. |
+| **Fire Alert** | MODIS / VIIRS active fire data | Real-time active fire detection and burn area analysis. |
+| **Coastal Erosion** | Shoreline temporal analysis | Track shoreline changes and rising sea levels over time. |
 
 ---
 
@@ -160,17 +295,46 @@ Using multi-temporal SAR (Synthetic Aperture Radar) imagery from Sentinel-1, Geo
 
 StreetGig is a hyperlocal AI-powered labor marketplace that connects daily wage workers, freelancers, and gig workers with immediate community needs using intelligent matching and skill intelligence.
 
-**AI Worker-Job Matching via Embedding Vectors**
-Every worker profile is encoded into a semantic vector embedding — the "Master Profile Vector" — derived from their declared skills, job history, completed work descriptions, and AI-extracted competency signals from employer feedback. Every posted job is similarly embedded at creation time using OpenAI's embedding API. At recommendation time, the system computes cosine similarity between the worker's profile vector and all nearby open jobs, ranking results by a composite score of semantic similarity and haversine distance. This ensures that the jobs surfaced are both geographically accessible and genuinely matched to the worker's capabilities — not just keyword matches.
+<p align="center">
+  <img src="ReadmeMedia/React_Native/StreetGig/StreetGig_Normal_person.jpg" width="200" alt="StreetGig — Worker Profile Inactive state with Become a Worker registration CTA">
+  &nbsp;&nbsp;
+  <img src="ReadmeMedia/React_Native/StreetGig/StreetGig_Job_Reccomendation.jpg" width="200" alt="StreetGig AI job recommendations — ranked job cards with AI Match badges, distance indicators, and filter chips">
+  &nbsp;&nbsp;
+  <img src="ReadmeMedia/React_Native/StreetGig/StreetGig_Job_Creation.jpg" width="200" alt="StreetGig job creation — budget setting screen with preset amount chips and Worker On mode">
+  &nbsp;&nbsp;
+  <img src="ReadmeMedia/React_Native/StreetGig/StreetGig_Upskill.jpg" width="200" alt="StreetGig AI Career Growth — Recommended Govt. Schemes with Upgradation and Improvement tabs, showing DDU-GKY and Skill India courses with match percentages">
+</p>
+<p align="center">
+  <em>Left to Right: Worker Registration Gate · AI Job Recommendations · Job Creation with Budget Setting · AI Career Growth with Govt. Scheme Matching</em>
+</p>
 
-**Geohash-Based Proximity Indexing**
-Job discovery is powered by a geohash spatial indexing system at precision level 6 (~1.2km² cells). Each job is stored with both a geohash4 (broad area) and geohash6 (precise cell) index. Discovery queries fetch all jobs within the 9-cell geohash neighborhood of the user's current location in a single Firestore query, eliminating the need for expensive radius queries. Recommendation endpoints then apply the AI similarity and filter pipeline in-memory on this pre-fetched neighbourhood set.
+#### AI Matching Architecture
 
-**AI Skill Gap Analysis and Scheme Recommendation**
-After a job is closed, the employer submits structured feedback through an AI-generated feedback form (tailored per job category). An AI agent processes the ratings, feedback descriptions, and job outcomes to generate a skill gap string that identifies specific competency deficits (e.g., "Lacks knowledge of load-bearing calculations for carpentry"). These skill gap tags accumulate over a worker's history. A separate recommendation agent then matches these gaps against a database of 150+ government upskilling schemes and training programs, surfacing the most relevant ones in the StreetGig Schemes modal — categorized as Upgradation Courses (matching existing strengths) and Improvement Courses (addressing identified gaps).
+```mermaid
+graph TD
+    WP["Worker Profile"] --> WE["Master Profile Vector<br/>(Skills + History + Feedback)"]
+    JP["Job Posting"] --> JE["Job Embedding<br/>(text-embedding-3-large)"]
+    WE --> CS["Cosine Similarity"]
+    JE --> CS
+    CS --> RANK["Composite Score<br/>(Semantic Match x Distance)"]
+    RANK --> REC["Ranked Recommendations"]
 
-**Worker Discoverability and Employer-Side AI Matching**
-Employers posting jobs trigger a background AI worker discovery task. The system queries all active workers with `interestedToWork: true` matching the job's category, scores each worker's profile vector against the job embedding via cosine similarity, and returns a ranked shortlist of ideal candidates. Employers can initiate direct job-specific chat rooms with matched workers, with room metadata pre-populated with job terms for transparency.
+    subgraph SKILL_GAP["Post-Job Skill Gap Analysis"]
+        FB["Employer Feedback"] --> SGA["AI Skill Gap Agent"]
+        SGA --> GAPS["Skill Gap Tags"]
+        GAPS --> SCHEME["Scheme Recommender"]
+        SCHEME --> GOV["150+ Govt. Schemes"]
+    end
+```
+
+#### Technical Deep-Dive
+
+| Component | Technology | Implementation |
+|---|---|---|
+| **Profile Vectorization** | OpenAI `text-embedding-3-large` | Skills, job history, competency signals converted to semantic vector for cosine similarity matching. |
+| **Geohash Proximity** | ngeohash precision-6 (~1.2km2) | 9-cell neighborhood query via Firestore `IN` operator. O(1) spatial lookup. |
+| **Skill Gap Analysis** | LangChain AI Agent | Post-job feedback processing, structured gap strings matched against 150+ govt. schemes. |
+| **Employer-Side Discovery** | Background AI task | Auto-queries workers with `interestedToWork: true`, ranks by profile-job similarity. |
 
 ---
 
@@ -178,14 +342,33 @@ Employers posting jobs trigger a background AI worker discovery task. The system
 
 KindShare is a hyper-local logistics intelligence system that uses AI to eliminate resource waste and accelerate the delivery of essential goods to vulnerable populations.
 
-**AI-Assisted Donation Matching**
-When a donor lists items (food, clothing, household goods), an AI classification model extracts item attributes, estimates shelf life for perishable goods, and constructs a structured inventory record. A matching agent then identifies the most suitable NGO recipient based on: geographic proximity, the NGO's declared current needs, verified capacity to handle the donation volume, and historical fulfillment reliability scores. Time-critical matches (perishable food) are weighted by urgency coefficient, ensuring hot meals and fresh produce reach NGOs within the minimum viable window.
+<p align="center">
+  <img src="ReadmeMedia/React_Native/kindshare/native/Kindshare_home.jpg" width="200" alt="KindShare home screen — Donate Items, Receive Items, My Donations, My Requests">
+  &nbsp;&nbsp;
+  <img src="ReadmeMedia/React_Native/kindshare/native/Kindshare_donation_window.jpg" width="200" alt="KindShare donation category selector — Clothes, Books, Medicines, Electronics, Others with location-based NGO sorting">
+  &nbsp;&nbsp;
+  <img src="ReadmeMedia/React_Native/kindshare/native/NGO_accepting_clothes.jpg" width="200" alt="NGOs accepting Clothes — sorted by rating and proximity">
+  &nbsp;&nbsp;
+  <img src="ReadmeMedia/React_Native/kindshare/native/NGO_available_items.jpg" width="200" alt="NGO available items inventory — Books at Helping Hands showing available textbooks with quantity and condition">
+</p>
+<p align="center">
+  <em>Left to Right: KindShare Home · Donation Category Selector · NGO List (sorted by proximity & rating) · Available Items at NGO</em>
+</p>
 
-**Automated Pickup Logistics**
-Upon donor-NGO match confirmation, the system automatically generates a pickup scheduling proposal based on the donor's listed availability windows and the NGO's operational hours. A confirmation notification is dispatched to both parties via Firebase Cloud Messaging. For large-volume donations, the system identifies and coordinates a volunteer or partner logistics provider within the same geohash zone.
+<p align="center">
+  <img src="ReadmeMedia/React_Native/kindshare/web/NGO_registration.png" width="60%" alt="NGO Registration Form — Organization details, location with GPS detection, categories accepted (Clothes, Books, Medicines, Electronics, Others)">
+</p>
+<p align="center">
+  <em>Web Portal — NGO Registration with auto-location detection and category preference selection</em>
+</p>
 
-**Impact Analytics for Administrators**
-The KindShare admin portal exposes AI-generated impact summaries: estimated meals provided, kilograms of goods redistributed, CO2 saved from food waste diversion, and NGO utilization rates. These metrics are updated in real-time as donations are confirmed and verified.
+#### Technical Deep-Dive
+
+| Component | Technology | Implementation |
+|---|---|---|
+| **AI Donation Matching** | Classification model + matching agent | Item attribute extraction, shelf-life estimation for perishables, NGO matching by proximity + needs + capacity + reliability. |
+| **Pickup Logistics** | Firebase Cloud Messaging, scheduling engine | Auto-generated pickup proposals based on donor/NGO availability. Volunteer coordination for large volumes. |
+| **Impact Analytics** | Real-time aggregation | Meals provided, kg redistributed, CO₂ saved from waste diversion, NGO utilization rates. |
 
 ---
 
@@ -193,20 +376,26 @@ The KindShare admin portal exposes AI-generated impact summaries: estimated meal
 
 UrbanConnect is a structured civic discourse platform where residents discuss local issues, share information, and engage with each other — with AI moderation ensuring quality and safety.
 
-**Threaded Discussion with AI Content Moderation and Fact-Checking**
-UrbanConnect supports nested threaded comments with upvote/downvote voting (one vote per user per item, enforced via server-side user+item keyed deduplication). All submitted posts and comments pass through a multi-stage AI pipeline:
-1. **Triage & Sentiment**: Determines post sentiment and identifies the post type.
-2. **Vectorize & Cluster**: Generates 768d embeddings to detect similar recent posts in the MongoDB vector store.
-3. **RAG Fact-Check**: For "MACRO_CLAIM" post types, verifies the claim against official civic announcements.
+<p align="center">
+  <img src="ReadmeMedia/React_Native/UrbanConnect/UrbanConnect_feed_showing_false_infe.jpg" width="200" alt="UrbanConnect feed showing a misinformation post about Stanley Road with AI-generated Community Context correction citing official Traffic Police announcement">
+  &nbsp;&nbsp;
+  <img src="ReadmeMedia/React_Native/UrbanConnect/UrbanConnect_rising_issues.jpg" width="200" alt="UrbanConnect Explore — Emerging Issues showing AI-detected cluster with 3 reports">
+  &nbsp;&nbsp;
+  <img src="ReadmeMedia/React_Native/UrbanConnect/UrbanConnect_Announcement.jpg" width="200" alt="UrbanConnect Announcements — Official announcements from Prayagraj Administration including Traffic Police notices">
+  &nbsp;&nbsp;
+  <img src="ReadmeMedia/React_Native/UrbanConnect/UrbanConnect_Profile.jpg" width="200" alt="UrbanConnect Profile — User profile with Posts, Likes, and Saved tabs showing civic report submissions">
+</p>
+<p align="center">
+  <em>Left to Right: AI Misinformation Detection with Community Context · Emerging Issue Clusters · Official Announcements · User Profile</em>
+</p>
 
-Flagged content or misinformation is automatically annotated or suppressed pending review rather than deleted, preserving auditability.
+#### AI Analytics Architecture
 
-**AI Analytics Architecture**
 ```mermaid
 graph TD
     A[User Posts on UrbanConnect] --> B[Node.js: createQuestion]
     B --> C[MongoDB: Save Question]
-    B --> D["🔥 Fire-and-forget"]
+    B --> D["Fire-and-forget"]
     D --> E["Python Agent: /analyze-post"]
     E --> F["Node 1: Triage & Sentiment<br/>(Gemini 2.0 Flash)"]
     F --> G["Node 2: Vectorize & Cluster<br/>(768d embedding + 12h window check)"]
@@ -217,7 +406,8 @@ graph TD
     J --> K
 ```
 
-**Data Flow Sequence**
+#### Data Flow Sequence
+
 ```mermaid
 sequenceDiagram
     participant User
@@ -255,115 +445,205 @@ sequenceDiagram
     NodeJS->>MongoDB: Update Question.aiAnalysis
 ```
 
-**Per-User Structured Voting Integrity**
-The voting system uses a server-side `Vote` model keyed on `userId + targetId + targetType`. Before recording a vote, the API checks for an existing record and either creates or toggles the vote, preventing manipulation via multiple submissions. Vote counts are aggregated in real-time and surfaced in the UI with directional trend indicators.
+#### Technical Deep-Dive
+
+| Component | Technology | Implementation |
+|---|---|---|
+| **Triage & Sentiment** | Gemini 2.0 Flash | Classifies post type (CIVIC_REPORT, MACRO_CLAIM, GENERAL), assigns sentiment and urgency. |
+| **Vectorize & Cluster** | 768d embeddings, MongoDB Vector Search | Generates embedding, checks cosine similarity against posts from last 12h to detect emerging issue clusters. |
+| **RAG Fact-Check** | Vector search + LLM verification | For MACRO_CLAIM posts: searches official announcements KB, LLM verifies claim against retrieved context. |
+| **Voting Integrity** | Server-side `Vote` model (userId + targetId + targetType) | One vote per user per item, enforced server-side. Toggle on re-vote. Real-time count aggregation. |
 
 ---
 
 ### 7. Civic Intelligence Dashboard — AI Decision Support for Local Leaders *(Category 3)*
 
-The Civic Intelligence Dashboard is UrbanFlow's dedicated answer to Category 3 — an AI-native leadership layer that transforms fragmented civic data into structured, actionable intelligence for local administrators and elected representatives.
+The Civic Intelligence Dashboard is UrbanFlow's dedicated answer to **Category 3** — an AI-native leadership layer that transforms fragmented civic data into structured, actionable intelligence.
 
-**Multi-Modal AI Issue Intake**
-Citizens and field workers can submit civic issues via voice (transcribed using OpenAI Whisper), free text (processed via NLP pipeline), or images (analyzed by vision AI). The AI structures all submissions into a uniform schema: location, category, severity, affected population estimate, and recurrence flag. Voice submissions are particularly important for reaching citizens with low digital literacy.
+<p align="center">
+  <img src="ReadmeMedia/Administration/Social_Media_AI_overview.png" width="90%" alt="Civic Analytics — Sentiment Distribution, Emerging Issues, Misinformation Feed, Analyzed Posts">
+</p>
+<p align="center">
+  <em>Civic Intelligence Dashboard — Full-spectrum social media intelligence with misinformation detection, issue clustering, and per-post AI analysis</em>
+</p>
 
-**ML-Based Prioritization Engine**
-Every incoming issue is scored by a multi-factor ML model trained on historical civic data. The prioritization composite score weighs: urgency (time-sensitivity of the issue type), impact radius (number of citizens potentially affected based on geospatial clustering), recurrence frequency (how many times this issue type has been reported in this zone), and resource availability (current field worker capacity). The ranked issue queue is surfaced to leaders in a real-time leaderboard view, enabling immediate, data-driven prioritization without manual triage.
+#### Key Capabilities
 
-**AI Field Work Verification**
-When field workers mark tasks complete and submit photo evidence, a multi-step AI verification pipeline runs: (1) GPS coordinate extraction and cross-validation against the task's target location, (2) timestamp metadata authenticity verification to detect clock manipulation, (3) computer vision content validation confirming the submitted image matches the expected post-resolution state (e.g., a cleared road after pothole repair), and (4) an overall authenticity confidence score. Only submissions exceeding the confidence threshold update the leader's execution status dashboard — preventing false reporting.
-
-**Social Media NLP Sentiment Pipeline**
-A continuous background agent scrapes and analyzes public social media signals from civic-relevant platforms. An NLP pipeline applies: sentiment classification (positive/negative/neutral) at the post level, topic modeling using Latent Dirichlet Allocation (LDA) to surface emerging local issues, and a misinformation detection model that flags posts contradicting verified civic records (e.g., a rumour that a road was repaired when it remains open in the system). Leaders receive a real-time sentiment timeline per ward, with AI-generated summaries of dominant citizen concerns.
-
-**AI Communication Generator**
-Leaders can generate verified, factual public announcements in seconds. The AI drafts communications grounded in live system data: resolution counts, pending grievances, scheme progress, and sentiment trends. A tone selector allows switching between formal (official notifications), empathetic (community outreach), and informational (status updates) styles. The AI adds supporting data citations inline, ensuring all public communications are transparent and verifiable. One-click publishing sends announcements to the official channel (push notification, civic portal, or SMS gateway).
-
-**Public Trust Index Dashboard**
-An aggregate real-time trust index is computed from three data streams: grievance resolution rate (percentage of reported issues resolved within SLA), citizen sentiment score (from the NLP pipeline), and scheme implementation progress (percentage of active government programs with verified progress records). This composite index is visualized per ward and per time period, giving leaders a measurable signal of public trust that can be tracked against their decisions.
+| Capability | Description | AI Technology |
+|---|---|---|
+| **Multi-Modal Issue Intake** | Voice (Whisper), text (NLP), image (Vision AI) → uniform schema: location, category, severity, affected population, recurrence | OpenAI Whisper, Vertex AI, NLP Pipeline |
+| **ML Prioritization Engine** | Composite score: urgency × impact radius × recurrence frequency × resource availability | Multi-factor ML model on historical civic data |
+| **AI Field Verification** | GPS cross-validation, timestamp authenticity check, computer vision content validation, confidence scoring | Computer Vision, metadata forensics |
+| **Sentiment Pipeline** | Continuous social media analysis: sentiment classification, LDA topic modeling, misinformation detection | NLP (LDA, BERT-class models) |
+| **AI Communication Generator** | Drafts verified public announcements from live data. Tone selector: formal / empathetic / informational. Inline data citations. | LLM with system data grounding |
+| **Public Trust Index** | Real-time composite: resolution rate + citizen sentiment + scheme progress. Visualized per ward and time period. | Aggregated multi-stream analytics |
 
 ---
 
 ## Technical Architecture
 
-UrbanFlow runs on a production-grade, fault-tolerant microservices architecture designed for high availability, real-time AI inference, and complex multi-agent orchestration at scale.
-
-### System Architecture Overview
-
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                      CLIENT LAYER                               │
-│  React Native Mobile App │ React.js Web Dashboard │ Staff PWA   │
-└───────────────┬─────────────────────────┬───────────────────────┘
-                │ HTTPS / WebSocket        │ Firebase RTDB
-┌───────────────▼──────────────────────────────────────────────────┐
-│                   API GATEWAY (Node.js / Express)                │
-│  Auth Middleware (Auth0 JWT)  │  Rate Limiting (Redis)           │
-│  REST Endpoints  │  Event Emitters  │  Webhook Receivers         │
-└──────────┬─────────────────────────────┬────────────────────────┘
-           │ HTTP / gRPC                  │ Message Queue (RabbitMQ)
-┌──────────▼──────────────────────────────────────────────────────┐
-│              AI INFERENCE ENGINE (Python / FastAPI)             │
-│  Multi-Agent Orchestration (LangChain)                          │
-│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────────────┐  │
-│  │ Safety   │ │ Infra    │ │ Jobs     │ │ Leadership/      │  │
-│  │ Agent    │ │ Agent    │ │ Agent    │ │ Sentiment Agent  │  │
-│  └──────────┘ └──────────┘ └──────────┘ └──────────────────┘  │
-│  Vision AI │ NLP Pipeline │ Embeddings │ Whisper Transcription  │
-└──────────┬──────────────────────────────────────────────────────┘
-           │
-┌──────────▼──────────────────────────────────────────────────────┐
-│                      DATA LAYER                                 │
-│  MongoDB (primary)  │  Firebase RTDB (real-time)  │ Redis       │
-│  Firestore (spatial)│  Cloudinary (media)         │ (cache)     │
-└─────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────┐
+│                        CLIENT LAYER                                  │
+│  React Native Mobile App  │  React.js Web Dashboard  │  Staff PWA    │
+└──────────────┬────────────────────────────┬──────────────────────────┘
+               │ HTTPS / WebSocket           │ Firebase RTDB
+┌──────────────▼───────────────────────────────────────────────────────┐
+│                    API GATEWAY (Node.js / Express)                    │
+│  Auth Middleware (Auth0 JWT)  │  Rate Limiting (Redis)               │
+│  REST Endpoints  │  Event Emitters  │  Webhook Receivers             │
+└─────────┬──────────────────────────────┬─────────────────────────────┘
+          │ HTTP / gRPC                   │ Message Queue (RabbitMQ)
+┌─────────▼────────────────────────────────────────────────────────────┐
+│               AI INFERENCE ENGINE (Python / FastAPI)                  │
+│  Multi-Agent Orchestration (LangChain)                               │
+│  ┌───────────┐ ┌───────────┐ ┌───────────┐ ┌───────────────────┐   │
+│  │ Safety    │ │ Infra     │ │ Jobs      │ │ Leadership /      │   │
+│  │ Agent     │ │ Agent     │ │ Agent     │ │ Sentiment Agent   │   │
+│  └───────────┘ └───────────┘ └───────────┘ └───────────────────┘   │
+│  Vision AI │ NLP Pipeline │ Embeddings │ Whisper Transcription      │
+└─────────┬────────────────────────────────────────────────────────────┘
+          │
+┌─────────▼────────────────────────────────────────────────────────────┐
+│                        DATA LAYER                                     │
+│  MongoDB (primary)  │  Firebase RTDB (real-time)  │  Redis (cache)    │
+│  Firestore (spatial)│  Cloudinary (media CDN)     │                   │
+└──────────────────────────────────────────────────────────────────────┘
 ```
-
-### Core Technology Stack
-
-| Layer | Technologies | Purpose |
-|---|---|---|
-| **Citizen Mobile App** | React Native, Expo, NativeWind | Cross-platform mobile with background task execution and GPS |
-| **Web Dashboard** | React.js (Vite), Tailwind CSS, Leaflet, Google Maps | Responsive, data-dense administrative interface |
-| **Primary API Gateway** | Node.js, Express.js | REST routing, auth, business logic, event emission |
-| **AI Inference Engine** | Python, FastAPI | ML model serving, multi-agent orchestration, vision processing |
-| **Primary Database** | MongoDB | Complex nested documents: grievances, profiles, analytics |
-| **Real-time Layer** | Firebase Realtime Database (RTDB) | Sub-100ms SOS signals, live staff tracking, chat |
-| **Spatial Database** | Firestore | Geohash-indexed job and alert records for proximity queries |
-| **Cache Layer** | Redis | Spatial query caching, API rate limiting, session store |
-| **AI Orchestration** | LangChain (Python) | Multi-agent networks, tool-use pipelines, chain-of-thought flows |
-| **LLM & Vision** | Google Cloud Vertex AI, OpenAI GPT-4o | Complaint analysis, skill gap inference, NL generation |
-| **Embeddings** | OpenAI `text-embedding-3-large` | Worker profile and job description vector encoding |
-| **Speech-to-Text** | OpenAI Whisper | Voice grievance transcription |
-| **Satellite Data** | Google Earth Engine (GEE) | Environmental monitoring, thermal analysis, SAR flood detection |
-| **Geospatial** | Google Maps Platform, ngeohash | Routing, geocoding, proximity indexing |
-| **Media Storage** | Cloudinary | Complaint images, profile photos, resolution proof upload |
-| **Auth** | Auth0 (JWT), Firebase Auth | Multi-platform authentication and session management |
-| **Push Notifications** | Firebase Cloud Messaging | Dispatch alerts, SOS broadcasts, status updates |
-| **Async Messaging** | RabbitMQ | Async task queues, background AI processing, notification dispatch |
 
 ---
 
-### AI Pipeline Deep-Dives
+## Complete Technology Stack
 
-#### Multi-Agent Orchestration (LangChain)
-UrbanFlow uses LangChain to construct a network of specialized AI agents, each with access to domain-specific tools (database lookups, API calls, embedding computations). Agents are invoked via a routing chain that classifies incoming requests by domain and dispatches to the appropriate agent. Agents use ReAct (Reasoning + Acting) prompting patterns, enabling them to iteratively query tools, reason over intermediate outputs, and arrive at grounded decisions rather than hallucinated responses.
+### Frontend Technologies
 
-#### Vector Embedding Architecture
-All semantic matching in UrbanFlow — job-worker matching, scheme-worker matching, and complaint deduplication — is powered by `text-embedding-3-large` embeddings stored as Firestore Vector fields. Similarity is computed server-side using cosine similarity in Python (NumPy), avoiding the need for a dedicated vector database at this scale while maintaining sub-200ms inference times.
+| Technology | Version / Spec | Role in UrbanFlow | Why This Choice |
+|---|---|---|---|
+| **React Native** | 0.76+ with Expo SDK 52 | Citizen mobile app (Android + iOS) | Single codebase, native performance, background task execution, GPS APIs |
+| **NativeWind** | v4 (Tailwind for RN) | Mobile UI styling | Utility-first styling with responsive breakpoints in React Native |
+| **React.js** | 18+ (Vite bundler) | Admin web dashboard | Fast HMR, tree-shaking, data-dense table/chart rendering |
+| **Tailwind CSS** | v3 | Web dashboard styling | Rapid UI prototyping with consistent design tokens |
+| **Leaflet** | 1.9+ | Complaint heatmaps, geospatial overlays | Open-source, lightweight map rendering with custom tile layers |
+| **Google Maps Platform** | Maps SDK, Directions API | Safe route rendering, geocoding | Industry-standard mapping with real-time traffic data |
+| **Expo Router** | v3 | File-based routing for mobile | Type-safe navigation, deep linking, screen preloading |
 
-#### Geohash Spatial Indexing
-All location-dependent queries (nearby jobs, nearby grievances, proximity-based alerts) use ngeohash precision-4 (≈39km²) for broad neighborhood lookup and precision-6 (≈1.2km²) for precise proximity. This allows single-query retrieval of all records within a target area using Firestore's `IN` operator over the 9-cell geohash neighborhood, achieving O(1) spatial lookup complexity without geospatial indexes.
+### Backend & API Technologies
 
-#### Real-Time Firebase Architecture
-SOS events, task assignments, worker location pings, and chat messages are all managed through Firebase Realtime Database with structured path schemas:
-- `fireAlerts/{geohash}/{alertId}` — geo-indexed SOS records
-- `staff/fire/{geohash}/{truckId}/coords` — live truck GPS coordinates
-- `jobs/rooms/{chatRoomId}/members/{userId}` — per-room participant tracking
-- `userActiveAlerts/{userId}` — per-user active alert state for notification deduplication
+| Technology | Version / Spec | Role in UrbanFlow | Why This Choice |
+|---|---|---|---|
+| **Node.js** | 20 LTS | Primary API gateway | Non-blocking I/O for concurrent civic requests |
+| **Express.js** | v4 | REST framework | Lightweight middleware chain, extensive ecosystem |
+| **FastAPI** | 0.100+ (Python) | AI inference engine | Async Python, auto-docs, native Pydantic validation, sub-200ms response |
+| **Auth0** | JWT-based | Multi-platform authentication | Managed identity with social login, MFA, role-based access |
+| **Firebase Auth** | — | Mobile-native auth | Seamless React Native integration, anonymous-to-permanent upgrade |
+| **RabbitMQ** | 3.12+ | Async messaging | Reliable task queues for background AI processing, notification dispatch |
+
+### AI & Machine Learning Stack
+
+| Technology | Version / Spec | Role in UrbanFlow | Why This Choice |
+|---|---|---|---|
+| **LangChain** | Python SDK | Multi-agent orchestration | ReAct prompting, tool-use pipelines, structured agent networks |
+| **Google Vertex AI** | Gemini 2.0 Flash | Vision-language analysis, complaint classification | Multimodal understanding, low-latency inference |
+| **OpenAI GPT-4o** | API | Skill gap inference, NL generation | State-of-the-art reasoning for complex textual analysis |
+| **OpenAI Whisper** | API | Voice grievance transcription | Multilingual speech-to-text, robust to ambient noise |
+| **OpenAI `text-embedding-3-large`** | 3072d vectors | Worker/job/complaint vectorization | High-dimensional semantic representation for cosine similarity |
+| **TensorFlow Lite** | On-device | Acoustic distress classification | Battery-efficient on-device inference, no network dependency for SOS |
+| **Google Earth Engine** | JS + Python APIs | Satellite environmental monitoring | Petabyte-scale satellite catalog, server-side computation |
+
+### Database & Storage Layer
+
+| Technology | Spec | Role in UrbanFlow | Why This Choice |
+|---|---|---|---|
+| **MongoDB** | 7.0+ with Atlas Vector Search | Primary document store, vector search | Flexible schema for nested civic documents, native vector indexing |
+| **Firebase Realtime Database** | — | Sub-100ms SOS, live tracking, chat | WebSocket-based, zero-latency for life-critical signals |
+| **Firestore** | — | Geohash-indexed spatial records | Composite index support, geohash `IN` queries for O(1) proximity |
+| **Redis** | 7.0+ | Cache, rate limiting, sessions | In-memory speed for spatial query caching and API throttling |
+| **Cloudinary** | — | Media CDN | Complaint images, profile photos, resolution proof with auto-optimization |
+
+### Infrastructure & DevOps
+
+| Technology | Role |
+|---|---|
+| **Firebase Cloud Messaging (FCM)** | Push notifications: SOS broadcasts, status updates, dispatch alerts |
+| **ngeohash** | Precision-4 (~39km²) and precision-6 (~1.2km²) spatial indexing |
+| **Google Maps Geocoding API** | Address ↔ coordinate resolution |
+| **Expo EAS** | Over-the-air mobile updates, CI/CD builds |
+
+---
+
+## AI Pipeline Deep-Dives
+
+### Multi-Agent Orchestration (LangChain)
+
+```mermaid
+graph LR
+    REQ["Incoming Request"] --> RC["Routing Chain<br/>(Domain Classifier)"]
+    RC -->|Safety| SA["Safety Agent<br/>SOS · Routes · Distress"]
+    RC -->|Infrastructure| IA["Infra Agent<br/>Complaints · Verification"]
+    RC -->|Employment| JA["Jobs Agent<br/>Matching · Skill Gaps"]
+    RC -->|Governance| LA["Leadership Agent<br/>Sentiment · Prioritization"]
+    
+    SA --> TOOLS["Domain Tools<br/>(DB Lookups · APIs · Embeddings)"]
+    IA --> TOOLS
+    JA --> TOOLS
+    LA --> TOOLS
+    
+    TOOLS --> REACT["ReAct Loop<br/>(Reason → Act → Observe → Repeat)"]
+    REACT --> OUT["Grounded Decision<br/>(No Hallucination)"]
+```
+
+UrbanFlow uses LangChain to construct a network of **specialized AI agents**, each with access to domain-specific tools. Agents use **ReAct (Reasoning + Acting)** prompting patterns, enabling them to iteratively query tools, reason over intermediate outputs, and arrive at grounded decisions rather than hallucinated responses.
+
+### Vector Embedding Architecture
+
+All semantic matching — job-worker matching, scheme-worker matching, and complaint deduplication — is powered by **`text-embedding-3-large`** embeddings stored as Firestore Vector fields. Similarity is computed server-side using **cosine similarity in NumPy**, achieving sub-200ms inference times without a dedicated vector database.
+
+### Geohash Spatial Indexing
+
+| Precision | Cell Size | Use Case |
+|---|---|---|
+| **Geohash-4** | ~39 km² | Broad neighborhood lookup for initial candidate retrieval |
+| **Geohash-6** | ~1.2 km² | Precise proximity matching for job/alert discovery |
+
+Single-query retrieval via Firestore's `IN` operator over the **9-cell geohash neighborhood** achieves **O(1) spatial lookup complexity** without geospatial indexes.
+
+### Real-Time Firebase Architecture
+
+```
+fireAlerts/{geohash}/{alertId}              → Geo-indexed SOS records
+staff/fire/{geohash}/{truckId}/coords       → Live truck GPS coordinates
+jobs/rooms/{chatRoomId}/members/{userId}    → Per-room participant tracking
+userActiveAlerts/{userId}                    → Per-user alert state (deduplication)
+```
 
 All RTDB listeners are attached at the component level and cleaned up on unmount, preventing memory leaks in long-running mobile sessions.
 
 ---
 
-*UrbanFlow — Every citizen action intelligently processed. Every civic decision AI-informed. Built for the city of tomorrow.*
+## Repository Structure
+
+```
+UrbanFlow/
+├── client-native/          # React Native (Expo) — Citizen mobile app
+│   ├── app/                # File-based routing (Expo Router)
+│   ├── components/         # Reusable UI components
+│   └── services/           # API clients, Firebase configs
+├── client/                 # React.js (Vite) — Admin web dashboard
+│   ├── src/pages/          # Route-level page components
+│   └── src/components/     # Dashboard widgets, charts, maps
+├── server/                 # Node.js (Express) — API gateway
+│   ├── controllers/        # Business logic handlers
+│   ├── models/             # MongoDB schemas (Mongoose)
+│   └── routes/             # REST endpoint definitions
+├── agents/                 # Python (FastAPI) — AI inference engine
+│   ├── pipelines/          # Multi-agent orchestration configs
+│   └── models/             # ML model wrappers
+└── ReadmeMedia/            # Screenshots and documentation assets
+```
+
+---
+
+<p align="center">
+  <strong>UrbanFlow — Every citizen action intelligently processed. Every civic decision AI-informed.</strong><br>
+  <em>Built for the city of tomorrow. Shipped at SANKALP 2026.</em>
+</p>
