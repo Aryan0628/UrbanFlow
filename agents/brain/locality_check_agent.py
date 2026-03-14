@@ -8,7 +8,6 @@ from datetime import datetime, timezone
 from typing import Literal
 from langgraph.graph import StateGraph, START, END
 from state import AgentState
-
 load_dotenv()
 BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:3000")
 TIMEOUT = 10

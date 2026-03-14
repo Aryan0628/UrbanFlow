@@ -12,6 +12,7 @@ from brain.layel_2 import surveillance_agent
 from brain.agent3 import analyze_emergency
 from brain.resolveWasteAgent import workflow
 from brain.safety_agent import safety_app
+from brain.voice_analysis_agent import voice_analysis_app
 
 # [CHANGE 1: Renamed 'app' to 'report_agent' to avoid conflict with FastAPI app]
 from brain.orchestrator import app as report_agent 
@@ -76,6 +77,12 @@ class SafetyAnalysisRequest(BaseModel):
     reportId: str
     description: str
     chatLogs: List[str]
+
+class VoiceAnalysisRequest(BaseModel):
+    audioUrl: str
+    alertId: str
+    userId: Optional[str] = ""
+    userName: Optional[str] = ""
 
 def fetch_user_profile(access_token: str):
     url = f"https://{AUTH0_DOMAIN}/userinfo"
@@ -377,7 +384,48 @@ async def process_skill_gap(req: SkillGapRequest):
         print(f"Error in Process Skill Gap Endpoint: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.post("/analyze-voice")
+async def analyze_voice(req: VoiceAnalysisRequest):
+    try:
+        initial_state = {
+            "audio_url": req.audioUrl,
+            "alert_id": req.alertId,
+            "user_id": req.userId or "",
+            "user_name": req.userName or "Unknown",
+        }
+        
+        final_state = await voice_analysis_app.ainvoke(initial_state)
+        result = final_state.get("analysis_result")
+        
+        if result:
+            # Send results back to Node server
+            import httpx
+            backend_url = os.getenv("BACKEND_URL", "http://localhost:3000")
+            async with httpx.AsyncClient(timeout=10) as client:
+                await client.patch(
+                    f"{backend_url}/api/voice/{req.alertId}/analysis",
+                    json={
+                        "transcript": result.transcript,
+                        "urgency": result.urgency,
+                        "summary": result.summary,
+                        "pattern": result.pattern,
+                        "actionItems": result.actionItems,
+                    }
+                )
+        
+        return {
+            "status": "success",
+            "transcript": result.transcript,
+            "urgency": result.urgency,
+            "summary": result.summary,
+            "pattern": result.pattern,
+            "actionItems": result.actionItems,
+        }
+    except Exception as e:
+        print(f"Error in analyze-voice endpoint: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 if __name__ == "__main__":
     import uvicorn
-    port = int(os.environ.get("PORT", 10000))
+    port = int(os.environ.get("PORT", 8000))
     uvicorn.run(app, host="0.0.0.0", port=port)

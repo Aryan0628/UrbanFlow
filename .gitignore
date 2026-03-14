@@ -35,3 +35,6 @@ venv/
 sentinal/model
 sentinal/serviceAccountKey.json
 sentinal/__pycache__
+agents/.venv
+agents/__pycache__
+server/.venv
