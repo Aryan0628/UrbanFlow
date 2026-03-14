@@ -27,7 +27,7 @@
 
 ```mermaid
 graph TB
-    subgraph CITIZENS["👤 CITIZEN LAYER — React Native Mobile App"]
+    subgraph CITIZENS["CITIZEN LAYER — React Native Mobile App"]
         C1["SisterHood<br/>AI Safe Routes · Acoustic SOS"]
         C2["CivicConnect<br/>AI Grievance Reporting"]
         C3["StreetGig<br/>AI Job & Skill Gap Analysis"]
@@ -44,7 +44,7 @@ graph TB
         A5[Whisper STT]
     end
 
-    subgraph ADMIN["🖥️ ADMIN LAYER — React.js Web Dashboard"]
+    subgraph ADMIN["ADMIN LAYER — React.js Web Dashboard"]
         AD1["Operational Dashboard<br/>Central Command Systems"]
         AD2["Complaint Heatmap<br/>Geohash-Clustered Severity Map"]
         AD3["GeoScope<br/>Satellite Environmental Intelligence"]
@@ -52,7 +52,7 @@ graph TB
         AD5["Staff Management<br/>Task Assignment · Work Verification"]
     end
 
-    subgraph DATA["💾 DATA LAYER"]
+    subgraph DATA["DATA LAYER"]
         D1["MongoDB<br/>(Documents + Vector Search)"]
         D2["Firebase RTDB<br/>(Sub-100ms Real-time)"]
         D3["Firestore<br/>(Geohash Spatial Index)"]
@@ -60,7 +60,7 @@ graph TB
         D5["Cloudinary<br/>(Media CDN)"]
     end
 
-    subgraph FIELD["👷 FIELD WORKER LAYER"]
+    subgraph FIELD["FIELD WORKER LAYER"]
         F1["AI-Prioritized Task Queue"]
         F2["GPS-Verified Photo Proof"]
         F3["AI Resolution Validation"]
