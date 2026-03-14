@@ -4,6 +4,7 @@ import { useAuth0 } from "@auth0/auth0-react"
 import { 
   Globe,        
   ShieldCheck, 
+  ShieldAlert,
   Trash2,       
   LogOut,
   Building2,    
@@ -102,6 +103,33 @@ export default function CityAdminHub() {
       icon: ShieldCheck,
       route: "/administration/womenSafety",
       theme: "rose",
+      specialAction: false
+    },
+    {
+      id: "ai-safety",
+      title: "AI Safety Audits",
+      description: "Review automated Trust & Safety chat reports evaluated by LangGraph AI.",
+      icon: ShieldCheck,
+      route: "/administration/safety-reports",
+      theme: "violet",
+      specialAction: false
+    },
+    {
+      id: "native-sos",
+      title: "Native SOS Command",
+      description: "Real-time tracking of active SOS distress signals from the SisterHood mobile app.",
+      icon: ShieldAlert,
+      route: "/administration/client-women-admin",
+      theme: "rose",
+      specialAction: false
+    },
+    {
+      id: "civic-analytics",
+      title: "Civic Analytics",
+      description: "Monitor UrbanConnect post sentiment, emerging issues, and misinformation detection.",
+      icon: Activity,
+      route: "/administration/civic-analytics",
+      theme: "emerald",
       specialAction: false
     },
   ]
@@ -287,7 +315,7 @@ export default function CityAdminHub() {
                     <div className="flex justify-between items-start z-10 relative">
                        <div className="space-y-4 max-w-[70%]">
                           <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-white shadow-md transition-transform duration-500 group-hover:rotate-6
-                            ${system.theme === 'indigo' ? 'bg-indigo-600' : 'bg-rose-600'}`}>
+                            ${system.theme === 'indigo' ? 'bg-indigo-600' : system.theme === 'violet' ? 'bg-violet-600' : 'bg-rose-600'}`}>
                              <Icon className="w-7 h-7" />
                           </div>
                           <div>
