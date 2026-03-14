@@ -29,6 +29,11 @@ import CityAdminHub from "./pages/administration/Administration";
 import WomenSafetyAdmin from "./pages/administration/women/WomenSafetyAdmin";
 import WomenSafetyZoneDetails from "./pages/administration/women/WomenSafetyZoneDetails";
 import WomenSafetyRoom from "./pages/administration/women/WomenSafetyRoom"
+
+// NEW: Client Women Admin based on native code
+import ClientWomenAdmin from "./pages/administration/client__women_admin/ClientWomenAdmin";
+import ClientWomenZone from "./pages/administration/client__women_admin/ClientWomenZone";
+
 import GarbageAdmin from "./pages/administration/garbage/garbage";
 import GarbageReports from "./pages/reports/garbage/garbageReport";
 import TrackReport from "./pages/reports/track/TrackReports";
@@ -49,12 +54,29 @@ import FireAdmin from "./pages/administration/muncipal/fire/fire";
 import FireStaffDashboard from "./pages/staff/fire/fireStaff";
 import AdminComplaintsMap from "./pages/administration/ComplaintsMapAdmin";
 import DepartmentComplaintMap from "./pages/administration/DepartmentComplaintMap";
-import  CircularText from "./components/CircularText"
+import CircularText from "./components/CircularText"
+import SafetyReports from "./pages/administration/SafetyReports";
+import CivicAnalytics from "./pages/administration/CivicAnalytics";
 
 import AssignTask from "./pages/administration/muncipal/waste/assignTask";
 import NotificationFeed from "./components/NotificationFeed"
- 
-
+import KindShareHome from "./pages/features/kindshare-new/KindShareHome";
+import DonorCategory from "./pages/features/kindshare-new/donor/DonorCategory";
+import ReceiverCategory from "./pages/features/kindshare-new/receiver/ReceiverCategory";
+import RegisterNGO from "./pages/features/kindshare-new/ngonew/RegisterNGO";
+import NGOList from "./pages/features/kindshare-new/donor/NGOList";
+import KindShareAdmin from "./pages/administration/KindShareAdmin";
+import NGOStatus from "./pages/features/kindshare-new/ngonew/NGOStatus";
+import NGOAdminDashboard from "./pages/features/kindshare-new/ngoadmin/NGOAdminDashboard";
+import DonateItem from "./pages/features/kindshare-new/donor/DonateItem";
+import DonationStatus from "./pages/features/kindshare-new/donor/DonationStatus";
+import SelectNGO from "./pages/features/kindshare-new/ngoadmin/SelectNGO";
+import MyDonations from "./pages/features/kindshare-new/donor/MyDonations";
+import NGOComplaints from "./pages/features/kindshare-new/donor/NGOComplaints";
+import NGOComplaintsAdmin from "./pages/features/kindshare-new/ngoadmin/NGOComplaintsAdmin";
+import ReceiverNGOList from "./pages/features/kindshare-new/receiver/ReceiverNGOList";
+import ReceiverDonations from "./pages/features/kindshare-new/receiver/ReceiverDonations";
+import MyRequests from "./pages/features/kindshare-new/receiver/MyRequests";
 function App() {
   const location = useLocation();
   const showNavbar = ["/", "/mission", "/about"].includes(location.pathname);
@@ -136,6 +158,22 @@ function App() {
           }
         />
         <Route
+          path="/administration/safety-reports"
+          element={
+            <ProtectedRoute>
+              <SafetyReports />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/administration/civic-analytics"
+          element={
+            <ProtectedRoute>
+              <CivicAnalytics />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/water"
           element={
             <ProtectedRoute>
@@ -159,6 +197,26 @@ function App() {
             </ProtectedRoute>
           }
         />
+
+        {/* --- NEW ROUTES: Client Women Admin --- */}
+        <Route
+          path="/administration/client-women-admin"
+          element={
+            <ProtectedRoute>
+              <ClientWomenAdmin />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/administration/client-women-admin/:geohashId"
+          element={
+            <ProtectedRoute>
+              <ClientWomenZone />
+            </ProtectedRoute>
+          }
+        />
+        {/* -------------------------------------- */}
+
         <Route
           path="/sisterhood"
           element={
@@ -192,14 +250,7 @@ function App() {
           </ProtectedRoute>
         }
       />
-        <Route
-          path="/kindshare"
-          element={
-            <ProtectedRoute>
-              <NGO />
-            </ProtectedRoute>
-          }
-        />
+        
         //purana garbage wala //
         {/*<Route
           path="/garbage"
@@ -209,14 +260,112 @@ function App() {
             </ProtectedRoute>
           }
         />*/}
-       <Route
-        path="/ngo/*"
-        element={
-          <ProtectedRoute>
-            <NGO />
-          </ProtectedRoute>
-        }
-      />
+        {/* KindShare New Module */}
+          <Route
+            path="/kindshare"
+            element={
+              <ProtectedRoute>
+                <RegisterNGO />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+              path="/kindshare/donor"
+              element={
+                <ProtectedRoute>
+                  <DonorCategory />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/kindshare/receiver"
+              element={
+                <ProtectedRoute>
+                  <ReceiverCategory />
+                </ProtectedRoute>
+              }
+            />
+
+          <Route
+            path="/kindshare/register-ngo"
+            element={
+              <ProtectedRoute>
+                <RegisterNGO />
+              </ProtectedRoute>
+            }
+
+          />
+          <Route
+            path="/kindshare/donor/ngos"
+            element={
+              <ProtectedRoute>
+                <NGOList />
+              </ProtectedRoute>
+            }
+          />
+         <Route
+            path="/donate/:ngoId"
+            element={
+              <ProtectedRoute>
+                <DonateItem />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+              path="/kindshare/select-ngo"
+              element={<SelectNGO/>}
+              />
+        <Route
+          path="/kindshare/admin"
+          element={<KindShareAdmin />}
+        />
+        <Route
+          path="/kindshare/ngo-status"
+          element={<NGOStatus />}
+        />
+      <Route
+          path="/kindshare/ngo-admin"
+          element={<NGOAdminDashboard />}
+          />
+      <Route
+          path="/donation-status/:id"
+          element={
+            <ProtectedRoute>
+              <DonationStatus />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+            path="/kindshare/my-donations"
+            element={<MyDonations/>}
+            />
+        <Route
+            path="/kindshare/complaints/:ngoId"
+            element={<NGOComplaints/>}
+            />
+        <Route
+          path="/kindshare/ngo-complaints"
+          element={<NGOComplaintsAdmin />}
+        />
+        <Route
+          path="/kindshare/receiver"
+          element={<ReceiverCategory />}
+        />
+
+        <Route
+          path="/kindshare/receiver/ngos"
+          element={<ReceiverNGOList />}
+        />
+        <Route
+            path="/kindshare/receiver/donations/:ngoId"
+            element={<ReceiverDonations/>}
+            />
+        <Route
+            path="/kindshare/receiver/my-requests"
+            element={<MyRequests/>}
+            />
         <Route
           path="/streetgigs"
           element={
@@ -477,6 +626,7 @@ function App() {
             }
           />
       </Routes>
+      
       
     </>
 
