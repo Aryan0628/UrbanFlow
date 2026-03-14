@@ -1,10 +1,11 @@
-import {db} from ".././../firebaseadmin/firebaseadmin.js"
+import { db } from ".././../firebaseadmin/firebaseadmin.js"
 import admin from 'firebase-admin';
-import {pushNotificationToUser} from "../../utils/pushNotification.js"
+import { pushNotificationToUser } from "../../utils/pushNotification.js"
+import cloudinary from "../../../config/cloudinary.js"
 
 export const getTask = async (req, res) => {
   try {
-    const userId = req.auth?.payload?.sub; 
+    const userId = req.auth?.payload?.sub;
 
     const tasksRef = db.collection('tasks');
     const snapshot = await tasksRef
@@ -22,7 +23,7 @@ export const getTask = async (req, res) => {
       tasks.push({
         id: doc.id,
         ...data,
-        
+
         createdAt: data.createdAt ? data.createdAt.toDate().toISOString() : null,
         deadline: data.deadline ? data.deadline.toDate().toISOString() : null
       });
@@ -37,7 +38,7 @@ export const getTask = async (req, res) => {
 }
 export const getAllPastTask = async (req, res) => {
   try {
-    const userId = req.auth?.payload?.sub; 
+    const userId = req.auth?.payload?.sub;
 
 
     const tasksRef = db.collection('tasks');
@@ -67,18 +68,18 @@ export const getAllPastTask = async (req, res) => {
 }
 export const assignTask = async (req, res) => {
   try {
-    const { 
-      title, description, priority, deadline, 
+    const {
+      title, description, priority, deadline,
       assignedTo, assignedToName, zoneGeohash, location,
       reportId, email: reporterEmail, department,
-      reportGeohash,imageUrl,severity,address,reporterUserId
+      reportGeohash, imageUrl, severity, address, reporterUserId
     } = req.body;
-    
-    const assignedBy = req.auth?.payload?.sub || req.user?.sub; 
+
+    const assignedBy = req.auth?.payload?.sub || req.user?.sub;
 
     if (!assignedTo || !title) return res.status(400).json({ message: "Missing required fields." });
 
-  
+
     const newTask = {
       title,
       description: description || "",
@@ -94,30 +95,30 @@ export const assignTask = async (req, res) => {
       reporterEmail: reporterEmail || null,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
       deadline: deadline ? admin.firestore.Timestamp.fromDate(new Date(deadline)) : null,
-      
-      imageUrl: imageUrl || null,         
-      severity: severity || "LOW",       
-      address: address || null,           
-      reporterUserId: reporterUserId || null 
+
+      imageUrl: imageUrl || null,
+      severity: severity || "LOW",
+      address: address || null,
+      reporterUserId: reporterUserId || null
     };
 
     const taskRef = await db.collection('tasks').add(newTask);
 
-    
+
     if (reportId && reporterEmail) {
       const userSnapshot = await db.collection('users').where('email', '==', reporterEmail).limit(1).get();
 
       if (!userSnapshot.empty) {
         const reporterUid = userSnapshot.docs[0].data().uid;
-        
-       
+
+
         const targetHash = reportGeohash || zoneGeohash;
-        
+
         const reportPath = `${department}Reports/${targetHash}/reports/${reporterUid}/userReports/${reportId}`;
-        
+
         try {
-          await db.doc(reportPath).update({ 
-            status: 'ASSIGNED', 
+          await db.doc(reportPath).update({
+            status: 'ASSIGNED',
             assignedTaskId: taskRef.id,
             updatedAt: admin.firestore.FieldValue.serverTimestamp()
           });
@@ -137,18 +138,34 @@ export const assignTask = async (req, res) => {
 };
 export const resolveTask = async (req, res) => {
   try {
-    const { taskId, proofImageUrl } = req.body;
+    const { taskId } = req.body;
+    console.log("taskId", taskId)
+    if (!taskId) {
+      return res.status(400).json({ message: "Task ID is required." });
+    }
     const staffId = req.auth?.payload?.sub;
 
-    if (!proofImageUrl) {
-      return res.status(400).json({ message: "Proof image URL is required." });
+    if (!req.file) {
+      return res.status(400).json({ message: "Proof image is required." });
     }
+
+    // Upload proof image to Cloudinary
+    const proofImageUrl = await new Promise((resolve, reject) => {
+      cloudinary.uploader.upload_stream(
+        { folder: "task_proofs" },
+        (error, result) => {
+          if (error) return reject(error);
+          resolve(result.secure_url);
+        }
+      ).end(req.file.buffer);
+    });
+    console.log("proofImageUrl", proofImageUrl)
 
     const taskDoc = await db.collection('tasks').doc(taskId).get();
     if (!taskDoc.exists) {
       return res.status(404).json({ message: "Task not found" });
     }
-    
+
     const taskData = taskDoc.data();
     const { reportId, reporterEmail, department } = taskData;
 
@@ -169,9 +186,9 @@ export const resolveTask = async (req, res) => {
       if (!reportSnapshot.empty) {
         const reportDoc = reportSnapshot.docs[0];
         const reportData = reportDoc.data();
-        
+
         // CRITICAL FIX: Extract userId from report data
-        const reporterUid = reportData.userId; 
+        const reporterUid = reportData.userId;
 
         await reportDoc.ref.update({
           status: "USERVERIFICATION",
@@ -195,7 +212,7 @@ export const resolveTask = async (req, res) => {
 
         // 4. Real-time Push
         await pushNotificationToUser(reporterUid, notificationPayload);
-        
+
         console.log(`Main DB Report ${reportId} updated and user ${reporterUid} notified.`);
       }
     }
