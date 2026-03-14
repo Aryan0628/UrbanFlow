@@ -7,6 +7,7 @@ export const BlockSchema = {
       mean_sos: 1.0,
       std_dev: 1.0,
       z_score: 0.0,
+      weighted_sos_impact: 0.0, // Persisted across RTDB evictions
       last_updated: null
     }
   }

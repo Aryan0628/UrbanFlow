@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, Alert, ActivityIndicator } from 'react-native';
 import * as Location from 'expo-location';
-import { router } from 'expo-router';
+import { router, Redirect } from 'expo-router';
 import LocationAccess from './LocationAccess';
 import SisterHoodMap from './SisterHoodMap';
 export default function SisterHoodGateway() {
@@ -44,8 +44,12 @@ export default function SisterHoodGateway() {
   };
 
   const skipPermission = () => {
-    router.replace('/(main)'); 
+    setHasPermission('skipped'); // triggers a re-render to the Redirect
   };
+
+  if (hasPermission === 'skipped') {
+    return <Redirect href="/(main)" />;
+  }
 
   // 1. Still checking initial status
   if (hasPermission === null) {

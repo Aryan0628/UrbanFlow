@@ -7,6 +7,7 @@ import { api } from '../../../../lib/api';
 export default function LearningSchemesModal({ visible, onClose }) {
   const [isLoading, setIsLoading] = useState(true);
   const [schemesData, setSchemesData] = useState({ upgradationCourses: [], improvementCourses: [] });
+  const [activeSchemeTab, setActiveSchemeTab] = useState('upgradation');
   // Used for basic pulsing animation if lottie isn't guaranteed
   const [pulseAnim] = useState(new RNAnimated.Value(0.5));
 
@@ -55,15 +56,29 @@ export default function LearningSchemesModal({ visible, onClose }) {
 
   if (!visible) return null;
 
+  const TABS = [
+    { key: 'upgradation', label: 'Upgradation', Icon: ArrowUpRight, color: '#4ade80' },
+    { key: 'improvement', label: 'Improvement', Icon: Award, color: '#60a5fa' },
+  ];
+
+  const activeCourses = activeSchemeTab === 'upgradation'
+    ? schemesData.upgradationCourses
+    : schemesData.improvementCourses;
+
+  const activeType = activeSchemeTab === 'upgradation' ? 'UPGRADE' : 'IMPROVE';
+  const activeDesc = activeSchemeTab === 'upgradation'
+    ? 'Courses matching your current skills (Master Profile) to help you certify and charge more.'
+    : 'Courses recommended based on AI feedback from your recent job completions.';
+
   return (
     <Animated.View entering={FadeIn} exiting={FadeOut} style={styles.overlay}>
-      <Animated.View entering={SlideInDown.springify().damping(20)} exiting={SlideOutDown} style={styles.modalContent}>
+      <Animated.View entering={SlideInDown.duration(300)} exiting={SlideOutDown} style={styles.modalContent}>
         
         {/* Header */}
         <View style={styles.header}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
             <View style={styles.iconBox}>
-              <GraduationCap size={24} color="#facc15" />
+              <GraduationCap size={24} color="#fff" />
             </View>
             <View>
               <Text style={styles.title}>AI Career Growth</Text>
@@ -84,46 +99,51 @@ export default function LearningSchemesModal({ visible, onClose }) {
             <Text style={styles.loadingSub}>Scanning over 150+ govt skill initiatives.</Text>
           </View>
         ) : (
-          <ScrollView contentContainerStyle={styles.scrollContainer} showsVerticalScrollIndicator={false}>
-            
-            {/* Upgrade Courses */}
-            <View style={styles.sectionContainer}>
-               <View style={styles.sectionHeader}>
-                  <ArrowUpRight size={20} color="#4ade80" />
-                  <Text style={styles.sectionTitle}>Upgradation Courses</Text>
-               </View>
-               <Text style={styles.sectionDesc}>Courses matching your current skills (Master Profile) to help you certify and charge more.</Text>
-               
-               {schemesData.upgradationCourses.length === 0 ? (
-                 <Text style={styles.emptyText}>No matching upgrade courses found yet.</Text>
-               ) : (
-                 schemesData.upgradationCourses.map((scheme, idx) => (
-                    <SchemeCard key={`up-${scheme.id}-${idx}`} scheme={scheme} type="UPGRADE" />
-                 ))
-               )}
+          <View style={{ flex: 1 }}>
+            {/* Tab Bar */}
+            <View style={styles.tabBar}>
+              {TABS.map((tab) => {
+                const TabIcon = tab.Icon;
+                const isActive = activeSchemeTab === tab.key;
+                return (
+                  <TouchableOpacity
+                    key={tab.key}
+                    onPress={() => setActiveSchemeTab(tab.key)}
+                    style={[
+                      styles.tabItem,
+                      isActive && { backgroundColor: 'rgba(255,255,255,0.08)', borderColor: 'rgba(255,255,255,0.15)' }
+                    ]}
+                  >
+                    <TabIcon size={16} color={isActive ? tab.color : '#71717a'} />
+                    <Text style={[styles.tabLabel, isActive && { color: '#fff' }]}>{tab.label}</Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
 
-            {/* Improvement Courses */}
-            <View style={styles.sectionContainer}>
-               <View style={styles.sectionHeader}>
-                  <Award size={20} color="#facc15" />
-                  <Text style={styles.sectionTitle}>Improvement Courses</Text>
-               </View>
-               <Text style={styles.sectionDesc}>Courses recommended based on AI feedback from your recent job completions.</Text>
-               
-               {schemesData.improvementCourses.length === 0 ? (
-                 <View style={styles.emptyImprovementBox}>
+            {/* Tab Description */}
+            <View style={{ paddingHorizontal: 20, paddingTop: 16 }}>
+              <Text style={styles.sectionDesc}>{activeDesc}</Text>
+            </View>
+
+            {/* Tab Content */}
+            <ScrollView contentContainerStyle={styles.scrollContainer} showsVerticalScrollIndicator={false}>
+              {activeCourses.length === 0 ? (
+                activeSchemeTab === 'improvement' ? (
+                  <View style={styles.emptyImprovementBox}>
                     <Text style={styles.emptyTitle}>Complete more jobs on StreetGig!</Text>
                     <Text style={styles.emptyText}>Our AI will analyze employer feedback and recommend courses exactly where you need improvement.</Text>
-                 </View>
-               ) : (
-                 schemesData.improvementCourses.map((scheme, idx) => (
-                    <SchemeCard key={`imp-${scheme.id}-${idx}`} scheme={scheme} type="IMPROVE" />
-                 ))
-               )}
-            </View>
-
-          </ScrollView>
+                  </View>
+                ) : (
+                  <Text style={styles.emptyText}>No matching upgrade courses found yet.</Text>
+                )
+              ) : (
+                activeCourses.map((scheme, idx) => (
+                  <SchemeCard key={`${activeSchemeTab}-${scheme.id}-${idx}`} scheme={scheme} type={activeType} />
+                ))
+              )}
+            </ScrollView>
+          </View>
         )}
       </Animated.View>
     </Animated.View>
@@ -132,12 +152,12 @@ export default function LearningSchemesModal({ visible, onClose }) {
 
 const SchemeCard = ({ scheme, type }) => {
   const isUpgrade = type === 'UPGRADE';
-  const themeColor = isUpgrade ? '#4ade80' : '#facc15';
-  const bgColor = isUpgrade ? 'rgba(74, 222, 128, 0.05)' : 'rgba(250, 204, 21, 0.05)';
-  const borderColor = isUpgrade ? 'rgba(74, 222, 128, 0.2)' : 'rgba(250, 204, 21, 0.2)';
+  const themeColor = isUpgrade ? '#4ade80' : '#60a5fa';
+  const bgColor = isUpgrade ? 'rgba(74, 222, 128, 0.05)' : 'rgba(96, 165, 250, 0.05)';
+  const borderColor = isUpgrade ? 'rgba(74, 222, 128, 0.2)' : 'rgba(96, 165, 250, 0.2)';
 
   return (
-    <View style={[styles.card, { backgroundColor: bgColor, borderColor: borderColor }]}>
+    <View style={[styles.card, { backgroundColor: bgColor }]}>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
          <Text style={styles.schemeTitle} numberOfLines={2}>{scheme.title}</Text>
          <View style={[styles.badge, { backgroundColor: `${themeColor}20`, borderColor: `${themeColor}40` }]}>
@@ -180,8 +200,8 @@ const styles = StyleSheet.create({
     padding: 24, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)'
   },
   iconBox: {
-    width: 48, height: 48, borderRadius: 24, backgroundColor: 'rgba(250, 204, 21, 0.1)',
-    alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(250, 204, 21, 0.2)'
+    width: 48, height: 48, borderRadius: 24, backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.15)'
   },
   title: { fontSize: 20, fontWeight: 'bold', color: '#fff' },
   subtitle: { fontSize: 13, color: '#a1a1aa', marginTop: 2 },
@@ -194,6 +214,18 @@ const styles = StyleSheet.create({
   
   scrollContainer: { padding: 20, paddingBottom: 40 },
   
+  tabBar: {
+    flexDirection: 'row', gap: 8, paddingHorizontal: 20, paddingTop: 16,
+  },
+  tabItem: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    paddingVertical: 10, borderRadius: 12, borderWidth: 1,
+    borderColor: 'transparent', backgroundColor: 'transparent',
+  },
+  tabLabel: {
+    fontSize: 13, fontWeight: 'bold', color: '#71717a',
+  },
+  
   sectionContainer: { marginBottom: 32 },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
   sectionTitle: { fontSize: 18, fontWeight: 'bold', color: '#fff' },
@@ -203,7 +235,7 @@ const styles = StyleSheet.create({
   emptyImprovementBox: { borderWidth: 1, borderColor: 'rgba(59, 130, 246, 0.3)', backgroundColor: 'rgba(59, 130, 246, 0.05)', padding: 16, borderRadius: 16, borderStyle: 'dashed' },
   emptyTitle: { color: '#60a5fa', fontSize: 15, fontWeight: 'bold', marginBottom: 6 },
   
-  card: { padding: 16, borderRadius: 16, borderWidth: 1, marginBottom: 16 },
+  card: { padding: 16, borderRadius: 16, marginBottom: 16 },
   schemeTitle: { fontSize: 16, fontWeight: 'bold', color: '#fff', flex: 1, marginRight: 12, lineHeight: 22 },
   badge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12, borderWidth: 1 },
   badgeText: { fontSize: 11, fontWeight: 'bold' },

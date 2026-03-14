@@ -37,7 +37,7 @@ export default function WorkerPrompt({ onSave, onCancel, initialData }) {
       style={styles.overlay}
     >
       <Animated.View 
-        entering={SlideInDown.springify().damping(20)} 
+        entering={SlideInDown.duration(300)} 
         exiting={SlideOutDown}
         style={styles.modalContent}
       >

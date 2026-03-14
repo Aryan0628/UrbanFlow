@@ -7,12 +7,12 @@ import FloatingLines from '../components/ui/FloatingLines';
 const { width, height } = Dimensions.get('window');
 
 const missionData = [
-  { name: "Urban Flow", subtitle: "THE MISSION", description: "To transform urban living into a seamless, safe, and community-driven experience. We bridge the gap between technology and civic duty." },
-  { name: "GeoScope", subtitle: "ENVIRONMENT", description: "Analyze the city's environmental health with precision. GeoScope leverages satellite data to monitor deforestation, air quality, and flood risks." },
-  { name: "Sisterhood", subtitle: "SECURITY", description: "Never walk alone again. Sisterhood allows you to connect with other women traveling along the same route in real-time." },
-  { name: "EcoSnap", subtitle: "INFRASTRUCTURE", description: "Empowering citizens to report overflowing public dustbins by posting geo-tagged photos directly to municipal authorities." },
-  { name: "StreetGig", subtitle: "COMMUNITY", description: "A hyperlocal marketplace where residents can post quick chores, from grocery runs to technical fixes." },
-  { name: "KindShare", subtitle: "CHARITY", description: "Bridging the gap between your generosity and those in need. List clothes or essentials for donation." }
+  { name: "Urban Flow", subtitle: "THE MISSION", description: "To transform urban living through AI into a seamless, safe, and community-driven experience. We bridge the gap between technology and civic duty." },
+  { name: "GeoScope", subtitle: "ENVIRONMENT", description: "AI-powered analysis of the city's environmental health. GeoScope leverages satellite data to monitor deforestation, air quality, and flood risks." },
+  { name: "Sisterhood", subtitle: "SECURITY", description: "Never walk alone again. AI connects you with other women traveling along the same route in real-time." },
+  { name: "EcoSnap", subtitle: "INFRASTRUCTURE", description: "AI-empowering citizens to report overflowing public dustbins by posting geo-tagged photos directly to municipal authorities." },
+  { name: "StreetGig", subtitle: "COMMUNITY", description: "An AI-powered hyperlocal marketplace matching residents with quick chores, from grocery runs to technical fixes." },
+  { name: "KindShare", subtitle: "CHARITY", description: "AI bridges the gap between your generosity and those in need. List clothes or essentials for donation." }
 ];
 
 export default function Mission() {
