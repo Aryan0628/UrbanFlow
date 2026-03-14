@@ -11,3 +11,24 @@ export const uploadImage = (fileBuffer) => {
     ).end(fileBuffer);
   });
 };
+export const imagekindshare = async (req, res) => {
+
+  try {
+
+    const result = await cloudinary.uploader.upload(req.file.path);
+
+    res.json({
+      imageUrl: result.secure_url
+    });
+
+  } catch (error) {
+
+    console.error(error);
+
+    res.status(500).json({
+      error: "Image upload failed"
+    });
+
+  }
+
+};

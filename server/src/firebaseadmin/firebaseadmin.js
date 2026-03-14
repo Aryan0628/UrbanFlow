@@ -10,8 +10,7 @@ if (process.env.FIREBASE_SERVICE_ACCOUNT) {
   } catch (error) {
     console.error("Failed to parse FIREBASE_SERVICE_ACCOUNT:", error);
   }
-} 
-else {
+} else {
   try {
     serviceAccount = req("../../serviceAccountKey.json");
   } catch (error) {
@@ -19,10 +18,17 @@ else {
   }
 }
 
-if (serviceAccount) {
-  admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount),
-  });
+const databaseURL = "https://quantacon-3e441-default-rtdb.firebaseio.com";
+
+if (!admin.apps.length) {
+  if (serviceAccount) {
+    admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount),
+      databaseURL,
+    });
+  } else {
+    console.error("Firebase service account not available.");
+  }
 }
 
 export const db = admin.firestore();
