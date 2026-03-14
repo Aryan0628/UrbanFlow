@@ -11,9 +11,11 @@ from brain.layel_1 import app_graph, FrontendMessage
 from brain.layel_2 import surveillance_agent
 from brain.agent3 import analyze_emergency
 from brain.resolveWasteAgent import workflow
+from brain.safety_agent import safety_app
 
 # [CHANGE 1: Renamed 'app' to 'report_agent' to avoid conflict with FastAPI app]
 from brain.orchestrator import app as report_agent 
+from brain.job_agent import app as job_agent_workflow
 from state import ReportStatus # Importing enums is good practice
 
 app = FastAPI()
@@ -44,9 +46,20 @@ class ThrottleRequest(BaseModel):
     routeId: str
     message: List[FrontendMessage] 
 
+class JobProcessRequest(BaseModel):
+    jobId: str
+    description: Optional[str] = ""
+    category: str
+    location: str
+    amount: float
+    time: str
+
 class LocationModel(BaseModel):
     lat: float
     lng: float
+
+class EmbedRequest(BaseModel):
+    text: str
 
 class ReportRequest(BaseModel):
     imageUrl: str
@@ -58,6 +71,12 @@ class ReportRequest(BaseModel):
 class WasteReportRequest(BaseModel):
     imageUrl:str
     staffimageUrl:str
+
+class SafetyAnalysisRequest(BaseModel):
+    reportId: str
+    description: str
+    chatLogs: List[str]
+
 def fetch_user_profile(access_token: str):
     url = f"https://{AUTH0_DOMAIN}/userinfo"
     headers = {
@@ -113,8 +132,45 @@ def get_user_from_token(authorization: str = Header(...)):
         print("Auth error:", e)
         raise HTTPException(status_code=401, detail="Unauthorized")
 
-
 # --- ENDPOINTS ---
+@app.post("/process-job")
+async def process_job(req: JobProcessRequest):
+    try:
+        initial_state = {
+            "job_id": req.jobId,
+            "description": req.description,
+            "category": req.category,
+            "location": req.location,
+            "amount": req.amount,
+            "time": req.time
+        }
+        
+        final_state = await job_agent_workflow.ainvoke(initial_state)
+        
+        return {
+            "status": "success",
+            "enriched_description": final_state.get("enriched_description"),
+            "job_embedding": final_state.get("job_embedding"),
+            "feedback_form": [q for q in final_state.get("feedback_form", [])]
+        }
+    except Exception as e:
+        print(f"Error in Process Job Endpoint: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/embed")
+async def generate_embedding_endpoint(req: EmbedRequest):
+    try:
+        print("request hitted in main.py")
+        from brain.embedding_agent import generate_embedding
+        vector = await generate_embedding(req.text)
+        return {
+            "status": "success",
+            "embedding": vector
+        }
+    except Exception as e:
+        print(f"Error in embed endpoint: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.post("/resolveWasteReports")
 async def resolve_waste_report(req: WasteReportRequest):
     try:
@@ -221,6 +277,28 @@ async def create_report(
     except Exception as e:
         print(f"Error in Report Endpoint: {e}")
         raise HTTPException(status_code=500, detail=f"Orchestration Failed: {str(e)}")
+
+@app.post("/analyze-safety")
+async def analyze_chat_safety(req: SafetyAnalysisRequest):
+    try:
+        initial_state = {
+            "reportId": req.reportId,
+            "description": req.description,
+            "chatLogs": req.chatLogs
+        }
+        
+        final_state = await safety_app.ainvoke(initial_state)
+        result = final_state.get("analysis_result")
+        
+        return {
+            "status": "success",
+            "severity": result.severity,
+            "summary": result.summary
+        }
+    except Exception as e:
+        print(f"Error in analyze-safety endpoint: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.post("/agent1")
 async def chat_endpoint(req: ChatRequest):
     try:
@@ -270,6 +348,33 @@ async def throttle_push(req: ThrottleRequest):
         }
     except Exception as e:
         print(f"Error in throttle agent: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+class SkillGapRequest(BaseModel):
+    questions: List[str]
+    ratings: List[int]
+    pairedQuestions: Optional[List[Dict]] = None
+
+@app.post("/process-skill-gap")
+async def process_skill_gap(req: SkillGapRequest):
+    try:
+        from brain.skill_gap_agent import workflow as skill_gap_workflow
+        
+        initial_state = {
+            "questions": req.questions,
+            "ratings": req.ratings,
+            "pairedQuestions": req.pairedQuestions or []
+        }
+        
+        final_state = await skill_gap_workflow.ainvoke(initial_state)
+        
+        return {
+            "status": "success",
+            "skill_gap_string": final_state.get("skill_gap_string"),
+            "skill_gap_embeddings": final_state.get("skill_gap_embeddings")
+        }
+    except Exception as e:
+        print(f"Error in Process Skill Gap Endpoint: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
