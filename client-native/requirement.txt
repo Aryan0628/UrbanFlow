@@ -1,4 +1,0 @@
-react-native-maps
-expo-location
-@mapbox/polyline
-ngeohash
