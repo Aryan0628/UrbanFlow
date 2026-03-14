@@ -97,15 +97,6 @@ export default function CityAdminHub() {
       specialAction: true 
     },
     {
-      id: "safety",
-      title: "Women Safety",
-      description: "Real-time distress monitoring, SOS tracking, and safe route AI.",
-      icon: ShieldCheck,
-      route: "/administration/womenSafety",
-      theme: "rose",
-      specialAction: false
-    },
-    {
       id: "ai-safety",
       title: "AI Safety Audits",
       description: "Review automated Trust & Safety chat reports evaluated by LangGraph AI.",
