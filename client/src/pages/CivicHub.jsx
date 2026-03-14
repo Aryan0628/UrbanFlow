@@ -343,7 +343,7 @@ export default function App() {
       {/* HEADER */}
       <header className="relative z-50 w-full h-20 px-6 md:px-10 flex items-center justify-between bg-black/10 backdrop-blur-md border-b border-white/5">
         <div className="flex items-center gap-4 select-none">
-          <img src={logo} alt="CityBeat Logo" className="h-12 w-auto object-contain"/>
+          <img src={logo} alt="UrbanFlow Logo" className="h-12 w-auto object-contain"/>
           <h1 className="text-2xl font-black tracking-tighter text-white">
             Urban<span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-blue-500">Flow</span>
           </h1>

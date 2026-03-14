@@ -19,7 +19,7 @@ export default function Home() {
       {/* Header Section */}
       <header className="absolute top-8 left-10 z-[110] flex items-center gap-4">
         {/* Logo Image */}
-        <img src={logo} alt="CityBeat Logo" className="w-12 h-12 object-contain" />
+        <img src={logo} alt="UrbanFlow Logo" className="w-12 h-12 object-contain" />
         
         <h1 className="text-2xl font-black tracking-tighter bg-gradient-to-r from-white via-blue-100 to-purple-200 bg-clip-text text-transparent">
           UrbanFlow
