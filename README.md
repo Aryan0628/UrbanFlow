@@ -7,7 +7,7 @@
 
 <p align="center">
   <strong>SANKALP Hackathon 2026</strong><br>
-  Built by <strong>Shreyansh Sachan</strong> · <strong>Ishwar</strong> · <strong>Aryan Gupta</strong> · <strong>Arushi Nayak</strong>
+  Built by <strong>· Shreyansh Sachan</strong> · <strong>Ishwar</strong> · <strong>Aryan Gupta</strong> · <strong>Arushi Nayak</strong>
 </p>
 
 <p align="center">
@@ -19,7 +19,7 @@
 
 ---
 
-> **UrbanFlow** is a production-grade, AI-first civic operating system that transforms the relationship between citizens, municipal administration, local leaders, and field operations. It deploys a synchronized, three-tier ecosystem driven by **Large Language Models**, **multi-agent AI orchestration**, **real-time streaming**, **computer vision**, **satellite analytics**, and **geospatial intelligence**.
+> **UrbanFlow** is a production-grade, AI-first civic Intelligent system that transforms the relationship between citizens, municipal administration, local leaders, and field operations. It deploys a synchronized, three-tier ecosystem driven by **Large Language Models**, **multi-agent AI orchestration**, **real-time streaming**, **computer vision**, **satellite analytics**, and **geospatial intelligence**.
 
 ---
 
@@ -78,18 +78,12 @@ graph TB
 
 ## Problem Statements Addressed
 
-### Urban Civic Services
 Citizens lack unified, intelligent channels for reporting grievances, accessing safe navigation, finding employment, and coordinating community resources. Municipal systems operate in silos with no AI layer to triage, route, or verify work — resulting in slow response, low transparency, and poor outcomes.
 
 ### AI for Local Leadership, Decision Intelligence & Public Trust
 Local leaders operate at the front line of service delivery, yet grassroots governance processes remain fragmented and unstructured. UrbanFlow's **Civic Intelligence Dashboard** directly addresses this with:
 
-- AI-powered structuring of citizen issues from voice, text, image, and social media inputs
-- Intelligent issue prioritization using ML-based urgency, impact, and recurrence scoring
-- AI-validated geo-tagged, time-stamped verification of field work completion
-- NLP pipelines for social media sentiment and misinformation detection
-- AI-assisted generation of verified public communications
-- Real-time dashboards exposing execution status and citizen trust indicators
+The challenge is to design an AI-powered leadership and decision-support system that helps local leaders understand ground realities, prioritize effectively, execute efficiently, and communicate transparently using both on-ground data and digital public signals.
 
 ---
 
@@ -111,8 +105,7 @@ The mobile interface is designed for accessibility and rapid response, enabling 
 ---
 
 ### Web Administration Panel
-
-The centralized command hub where municipal authorities leverage AI-generated summaries, anomaly alerts, live maps, and satellite data to orchestrate city operations.
+A centralized AI command hub leveraging satellite telemetry and advanced AI to monitor, analyze, and orchestrate city operations at scale.
 
 <p align="center">
   <img src="ReadmeMedia/Administration/Admin_Panel.png" width="90%" alt="CityAdmin Operational Dashboard showing Central Command Systems: GeoScope, Women Safety, AI Safety Audits, Native SOS Command, Civic Analytics — with Departmental Operations: Infrastructure, Water Supply, Smart Waste, Electricity, Fire & Safety">
@@ -123,8 +116,6 @@ The centralized command hub where municipal authorities leverage AI-generated su
 
 <p align="center">
   <img src="ReadmeMedia/Administration/ComplaintMap/Screenshot_2026-03-14_at_9.29.41_PM.png" width="45%" alt="Complaint heatmap view 1 — geohash-clustered grievance pins on a city map">
-  &nbsp;
-  <img src="ReadmeMedia/Administration/ComplaintMap/Screenshot_2026-03-14_at_9.29.57_PM.png" width="45%" alt="Complaint heatmap view 2 — zoomed-in severity-coded complaint clusters">
 </p>
 <p align="center">
   <em>Live Complaint Heatmap — Geohash-clustered grievances with AI-determined severity, filterable by department and date range</em>
@@ -133,6 +124,7 @@ The centralized command hub where municipal authorities leverage AI-generated su
 ---
 
 ### GeoScope — Satellite Intelligence Panel
+A planetary-scale monitoring suite that leverages Google Earth Engine and satellite telemetry to penetrate cloud cover, map environmental crises, and audit urban health through thermal benchmarking.
 
 <p align="center">
   <img src="ReadmeMedia/Administration/GEE/GEE_analysis_options.png" width="45%" alt="GeoScope Environmental Monitoring module selector — Deforestation, Fire Alert, Coastal Erosion, Flood Watch, Air Pollutants, Surface Heat">
@@ -145,9 +137,9 @@ The centralized command hub where municipal authorities leverage AI-generated su
 
 ---
 
-### Civic Intelligence Dashboard — AI Leadership Module
+### UrbanConnect Intelligence Dashboard — AI Leadership Module
 
-A dedicated AI decision-support surface for local leaders and administrators, surfacing ground realities from both citizen-reported data and civic social media signals.
+A strategic AI intelligence surface that distills community signals into actionable insights, identifying emerging issue clusters and safeguarding public discourse through automated misinformation detection.
 
 <p align="center">
   <img src="ReadmeMedia/Administration/Social_Media_AI_overview.png" width="90%" alt="Civic Analytics dashboard showing Analyzed Posts count, Average Sentiment score, Emerging Clusters, Misinformation count, Sentiment Distribution bars, Emerging Issues with cluster IDs, Misinformation Feed with flagged posts and AI Context Notes, and Analyzed Posts table with sentiment/urgency/type/cluster metadata">
@@ -159,6 +151,8 @@ A dedicated AI decision-support surface for local leaders and administrators, su
 ---
 
 ### Staff & Field Worker Management
+
+A proximity-aware command system that auto-dispatches the nearest staff via intelligent timers and uses AI-powered visual comparison to audit and verify resolution integrity.
 
 <p align="center">
   <img src="ReadmeMedia/Administration/Staff_Panel/Admin_Assigned_Staff_work.png" width="32%" alt="Smart Waste — Needs Action queue showing AI-verified high-priority complaint with photo, description, and Assign Team button">
@@ -181,6 +175,8 @@ A dedicated AI decision-support surface for local leaders and administrators, su
 ---
 
 ### Women Safety — Police Command Panel
+
+A high-stakes emergency interface that synchronizes live SOS tracking with AI-driven voice intelligence to transcribe distress, detect recurring safety patterns, and generate immediate response playbooks.
 
 <p align="center">
   <img src="ReadmeMedia/Administration/Woman_safety/Police_Panel_for_women_safety.png" width="90%" alt="Police Panel for Women Safety — Live SOS Tracking with Active Signals, Voice SOS Recordings, live Google Maps view with SOS pin, AI Summary of distress pattern, and recommended actions">
