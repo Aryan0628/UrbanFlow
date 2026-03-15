@@ -204,14 +204,60 @@ SisterHood is a real-time safety platform built on continuous AI inference and d
   <em>Left: AI safe route with risk heatmap · Center: SOS triggered — Securing Perimeter with nearby alert broadcast · Right: SOS deactivation with false alarm feedback loop</em>
 </p>
 
+#### Architectural Workflow
+
+```mermaid
+graph TD
+    subgraph NATIVE[" Client Native — SisterHood Shield"]
+        A[" SisterHoodMap\n(Location Gate)"] --> B[" GPS Initialization\n(Expo Location)"]
+        B --> C[" Stationary Mode\n(50m Geohash-8 Grid)"]
+        C -->|"> 15m walked"| D[" Moving Mode\n(Bearing-Projected\nForward Blocks)"]
+        D --> E[" Sliding Window\n(Auto-advance on\nblock progression)"]
+
+        B --> F[" RTDB Sync\n(users/{id} footprint)"]
+        F --> G["Nearby Threat Listener\n(active_sos/{geo6})"]
+        G -->|"SOS within 2.5km"| H[" Alert Banner\n(Distance + Tap-to-Focus)"]
+
+        I[" SOS Button"] --> J["⚡ SOS Activated"]
+        K[" Volume Trigger\n(3 presses / 2s)"] --> J
+
+        J --> L[" RTDB Broadcast\n(active_sos/{geo6}/{userId})"]
+        J --> M[" Block Safety Impact\n(Trust × Time-of-Day\nReverse Gaussian)"]
+        J --> N[" Voice Recording\n(On-Device Capture)"]
+    end
+
+    subgraph BACKEND[" Backend — Express + Firebase"]
+        N -->|"POST /api/voice/upload"| O[" Cloudinary Upload\n(Memory Buffer)"]
+        O --> P[" Firestore + RTDB\n(voice_alerts/{id})"]
+
+        J -->|"POST /room/log-sos"| R[" SOS Event Log\n(model_sos_activity)"]
+
+        G -->|"POST /room/log-suspicious"| S[" Suspicious Activity Log\n(suspicious_activity)"]
+
+        J -->|"POST /room/throttle-room"| T[" Room Throttle\n(AI Analysis + Alert Level)"]
+        T --> U[" Throttle Log\n(log-sos collection)"]
+    end
+
+    subgraph TRUST[" Trust Score Lifecycle"]
+        J --> AA[" False Alarm?\n(Resolution Modal)"]
+        AA -->|"Yes, False Alarm"| AB[" Trust Decay\n(score × e⁻⁰·⁴)"]
+        AA -->|"No, Real Emergency"| AC[" Trust Boost\n(+1.0, cap 10.0)"]
+        E -->|"Safe Exit\n(no SOS)"| AD[" Streak +1\n(5 walks = +0.5 bonus)"]
+    end
+
+```
+
 #### Technical Deep-Dive
 
 | Component | Technology | Implementation |
 |---|---|---|
-| **Safe Route Engine** | Modified Dijkstra's, Google Maps Platform | Multi-factor safety index: historical incident heatmaps, crowd density, street lighting from satellite imagery, time-of-day risk modifiers. Optimizes for safety-weighted cost, not pure distance. |
-| **Acoustic Distress Monitor** | TensorFlow Lite (on-device) | 16kHz mic input, 3-second sliding buffer, confidence scoring every second. Trained on labeled distress vocalizations. Zero-interaction SOS trigger on sustained high confidence. |
-| **Emergency Network** | Firebase RTDB, FCM, REST API | Parallel SOS: (1) Backend + police dispatch via RTDB, (2) geofenced push notifications to community responders, (3) live tracking for trusted contacts. |
-| **Companion Matching** | Vector similarity on route segments | Matches verified users traveling same route within ±10-min departure window. Opt-in real-time coordination. |
+| **Geospatial Sliding Window** | Geohash-8, Firebase RTDB | Predictive path-aware tracking that initializes a 50m stationary perimeter grid and transitions to bearing-projected forward blocks upon movement detection, autonomously sliding the monitoring window in real time. |
+| **Hardware SOS Trigger** | Volume Manager, Haptics | Zero-interaction emergency activation — 3 hardware volume-button presses within a 2-second window triggers full SOS protocol with immediate haptic confirmation. |
+| **Voice SOS Recording** | Cloudinary, Firebase RTDB | On-device audio capture during active distress, uploaded to Cloudinary and mirrored to RTDB for real-time admin playback with AI-generated transcription, urgency classification, and cross-alert pattern memory. |
+| **Trust Score Engine** | Reverse Gaussian Decay | Behavioral credibility model: exponential decay penalty (`e^(−0.4)`) for false alarms, `+1.0` boost for verified emergencies. Safe-walk streaks reward consistent users (+0.5 after 5 walks). Verified ceiling: 10.0, unverified: 7.5. |
+| **Block Safety Heatmap** | Time-Aware Reverse Gaussian | Every geohash-8 block maintains a live safety score (1–10). SOS events apply trust-weighted impact scaled by a time-of-day multiplier (nighttime × 1.5, daytime × 0.7), with natural decay over a 70-hour half-life. |
+| **Emergency Network** | Firebase RTDB, Background Service | Parallel SOS broadcast to `active_sos/{geo6}` alerting all users within a 2.5 km radius, with full persistence via a background service that continues tracking even when the app is minimized or killed. |
+| **Voice Analysis Pipeline** | Cloudinary → Firestore → RTDB → AI Agent | End-to-end pipeline: audio secured in Cloudinary, metadata dual-written to Firestore and RTDB, then a fire-and-forget trigger dispatches the AI voice analysis agent for transcription, urgency scoring, and historical pattern detection. |
 
 ---
 
@@ -235,30 +281,44 @@ CivicConnect replaces siloed municipal complaints with a fully AI-automated pipe
 #### AI Pipeline Architecture
 
 ```mermaid
-graph LR
-    A["Citizen Upload<br/>(Image + Text + Voice)"] --> B["Vision-Language AI<br/>(Vertex AI)"]
-    B --> C["Auto-Classification<br/>Type / Severity / Impact"]
-    C --> D{"Spam Filter Pipeline"}
-    D -->|Stage 1| E["Image Relevance<br/>Classifier"]
-    D -->|Stage 2| F["Duplicate Detection<br/>(Hash + Embedding)"]
-    D -->|Stage 3| G["Quality Scoring"]
-    E --> H["Verified Complaint"]
+graph TD
+    A["Citizen Grievance\n(Image + Description + GPS)"] --> B[" Cloudinary Upload\n+ Geohash-7 Tag"]
+    B --> C[" Orchestrator\n(LangGraph Parallel Fan-Out)"]
+    
+    C --> D[" Waste Agent"]
+    C --> E[" Water Agent"]
+    C --> F[" Infra Agent"]
+    C --> G["⚡ Electric Agent"]
+    
+    D --> H[" Judge Agent\n(Confidence Arbiter)"]
+    E --> H
     F --> H
     G --> H
-    H --> I["Auto-Route to Dept<br/>(Multi-label)"]
-    I --> J["Nearest Worker<br/>(Spatial Index)"]
-    J --> K["Firebase RTDB Push"]
-```
 
-#### Technical Deep-Dive
+    H -->|"Category + Severity\n+ Title"| I[" Locality Check\n(Geohash Proximity)"]
+    
+    I --> J{{"Duplicate Found\nin Geohash?"}}
+    J -->|Yes| K["Visual Verification\n(Gemini 2.0 Flash)"]
+    J -->|No| L[" SAVE\n(New Report)"]
+    
+    K --> M{{"Same Incident?"}}
+    M -->|TRUE| N[" UPDATE\n(Merge into Existing)"]
+    M -->|FALSE| L
+
+    L --> O[" Category-Specific\nFirestore Collection"]
+    N --> O
+
+```
+### Technical Deep-Dive
 
 | Component | Technology | Implementation |
-|---|---|---|
-| **Multimodal Intake** | Vertex AI (Vision-Language), OpenAI Whisper | Joint image + text analysis extracts: issue type, severity (1–5), impact area, plain-English description. Voice to text via Whisper. |
-| **Spam Filtering** | Binary classifier, perceptual hashing, NLP embeddings | 3-stage: (1) non-civic image rejection, (2) near-duplicate merging via hash + embedding similarity, (3) quality threshold enforcement. |
-| **Department Routing** | Multi-label classification model | Auto-routes to sanitation / electricity / road / fire / water. Queries spatial index for nearest available worker. |
-| **AI Resolution Verification** | Computer Vision, GPS metadata, timestamp validation | Before/after spatial consistency: GPS match, timestamp authenticity, visual similarity confirming issue no longer present. |
-
+|:---|:---|:---|
+| **Parallel Domain Analysis** | LangGraph, Gemini 2.0 Flash | Specialist agents (Waste, Water, Infra, Electric) execute **parallel multimodality analysis** on grievance data. Each operates with strict jurisdictional prompts to prevent misclassification (e.g., structural road damage vs. loose debris). |
+| **Confidence Arbiter (Judge)** | Gemini 2.0 Flash, Structured Output | A "City Operations Supervisor" node reconciles parallel agent findings. It evaluates confidence scores, resolves overlaps (e.g., trash-clogged drains), and selects the winning category and severity level (LOW–CRITICAL). |
+| **Geospatial Duplicate Detection** | Geohash-7, Firestore | Before persistence, the system queries category-specific backend endpoints using **Geohash-7 proximity** to identify existing reports within a ~150m radius, preventing redundant municipal tickets. |
+| **Visual Duplicate Verification** | Gemini 2.0 Flash (Vision) | If a geohash match is found, Gemini performs **visual cross-verification** between the new submission and the existing record. `TRUE` triggers a report update/refresh; `FALSE` creates a unique new entry. |
+| **Category-Routed Storage** | Express API, Firestore | Verified grievances are auto-routed to department-specific collections (`waterReports`, `wasteReports`, etc.) for direct municipal action. Updates are merged via specialized `update*` endpoints. |
+| **Native Grievance Portal** | React Native, Expo, Cloudinary | A high-performance mobile interface with location gating, **Geohash-7 auto-tagging**, and Cloudinary-backed evidence hosting. Supports real-time tracking via a status lifecycle: INITIATED → ASSIGNED → RESOLVED → VERIFIED. |
 ---
 
 ### 3. GeoScope — AI-Augmented Satellite Environmental Intelligence
@@ -274,16 +334,48 @@ GeoScope is a macro-scale environmental monitoring system built on **Google Eart
   <em>Left: 6-module environmental analysis suite · Right: Live Flood Analysis using Synthetic Aperture Radar (Sentinel-1)</em>
 </p>
 
-#### Technical Deep-Dive
+#### Architectural Workflow
 
-| Module | Data Source | AI Processing |
-|---|---|---|
-| **Air Pollutants** | Sentinel-5P (SO₂, NO₂, CO, Aerosol) | Interpolated pollution density maps at 1km² resolution. AI-generated anomaly commentary. |
-| **Surface Heat (UHI)** | Landsat-8 Thermal IR | Split-Window Algorithm for LST. AI segmentation identifies urban heat islands vs. baseline. |
-| **Flood Watch** | Sentinel-1 SAR | Multi-temporal SAR change detection for surface water expansion. Cloud-penetrating. |
-| **Deforestation** | NDVI differential analysis | Localized deforestation event detection between satellite acquisition cycles. |
-| **Fire Alert** | MODIS / VIIRS active fire data | Real-time active fire detection and burn area analysis. |
-| **Coastal Erosion** | Shoreline temporal analysis | Track shoreline changes and rising sea levels over time. |
+```mermaid
+  graph TD
+    subgraph GEE[" Google Earth Engine"]
+        S1[" Sentinel-1\n(C-Band SAR)"]
+        S2[" Sentinel-2\n(Multispectral Optical)"]
+        S5P[" Sentinel-5P\n(TROPOMI Spectrometer)"]
+        L89[" Landsat 8 & 9\n(Thermal IR + OLI)"]
+        L78[" Landsat 7 & 8\n(Multitemporal NDWI)"]
+        FIRMS[" FIRMS\n(VIIRS + MODIS)"]
+    end
+
+    subgraph MODULES[" GeoScope Analysis Modules"]
+        S1 -->|"COPERNICUS/S1_GRD\nVV Polarization"| FL[" Flood Watch\n(SAR Change Detection)"]
+        S2 -->|"COPERNICUS/S2_SR_HARMONIZED\nNDVI Differential"| DF["Deforestation\n(Vegetation Loss)"]
+        S5P -->|"S5P/NRTI/L3_NO2\nS5P/NRTI/L3_CO\nS5P/NRTI/L3_SO2\nS5P/NRTI/L3_O3\nS5P/NRTI/L3_AER_AI"| AQ[" Air Pollutants\n(5-Gas Atmospheric)"]
+        L89 -->|"LANDSAT/LC09/C02/T1_L2\nLANDSAT/LC08/C02/T1_L2"| SH[" Surface Heat\n(LST + UHI)"]
+        L78 -->|"LANDSAT/LC08/C02/T1_L2\nLANDSAT/LE07/C02/T1_L2"| CE[" Coastal Erosion\n(Shoreline Regression)"]
+        FIRMS -->|"FIRMS (Active Fire)\nMODIS/061/MOD11A1 (LST)"| FA[" Fire Alert\n(Hotspot + Thermal)"]
+    end
+
+    subgraph BACKEND[" Express + Firestore"]
+        FL --> DB1[" flood_reports"]
+        DF --> DB2[" deforestation_reports"]
+        AQ --> DB3[" pollutant_reports"]
+        SH --> DB4[" landheat_reports"]
+        CE --> DB5[" coastal_reports"]
+        FA --> DB6[" fire_reports"]
+    end
+
+```
+### Technical Deep-Dive
+
+| Module | Primary Satellite | Secondary Satellite | Processing |
+|:---|:---|:---|:---|
+| **Flood Watch** | Sentinel-1 (C-Band SAR) | — | Multi-temporal SAR change detection on `COPERNICUS/S1_GRD` VV polarization. Cloud-penetrating radar compares baseline dry-period imagery against recent acquisitions to map surface water expansion at pixel-level precision. |
+| **Deforestation** | Sentinel-2 (Multispectral) | — | Computes NDVI differential on `COPERNICUS/S2_SR_HARMONIZED` between a configurable baseline window (default 90 days) and current acquisitions. Detects localized vegetation loss events between satellite revisit cycles. |
+| **Air Pollutants** | Sentinel-5P (TROPOMI) | — | Queries 5 independent atmospheric collections (`L3_NO2`, `L3_CO`, `L3_SO2`, `L3_O3`, `L3_AER_AI`) from `COPERNICUS/S5P/NRTI`. Generates interpolated pollution density maps with configurable threshold alerts per gas species. |
+| **Surface Heat (UHI)** | Landsat 9 | Landsat 8 | Cascading sensor fallback: queries `LANDSAT/LC09` first, falls back to `LANDSAT/LC08` if insufficient coverage. Applies Split-Window Algorithm for Land Surface Temperature derivation. Historical `MODIS/061/MOD11A1` LST baseline enables urban heat island anomaly detection. |
+| **Fire Alert** | FIRMS (VIIRS) | MODIS/061/MOD11A1 | Active hotspot detection from the `FIRMS` near-real-time collection. Cross-references against `MODIS/061/MOD11A1` historical Land Surface Temperature for thermal baseline context and fire intensity classification. |
+| **Coastal Erosion** | Landsat 8 | Landsat 7 | Multi-decadal shoreline regression analysis comparing historic imagery (`LANDSAT/LE07`, default year 2000) against current `LANDSAT/LC08` acquisitions. NDWI water masking tracks coastline shift over time. |
 
 ---
 
@@ -308,29 +400,48 @@ StreetGig is a hyperlocal AI-powered labor marketplace that connects daily wage 
 
 ```mermaid
 graph TD
-    WP["Worker Profile"] --> WE["Master Profile Vector<br/>(Skills + History + Feedback)"]
-    JP["Job Posting"] --> JE["Job Embedding<br/>(text-embedding-3-large)"]
-    WE --> CS["Cosine Similarity"]
-    JE --> CS
-    CS --> RANK["Composite Score<br/>(Semantic Match x Distance)"]
-    RANK --> REC["Ranked Recommendations"]
-
-    subgraph SKILL_GAP["Post-Job Skill Gap Analysis"]
-        FB["Employer Feedback"] --> SGA["AI Skill Gap Agent"]
-        SGA --> GAPS["Skill Gap Tags"]
-        GAPS --> SCHEME["Scheme Recommender"]
-        SCHEME --> GOV["150+ Govt. Schemes"]
+    subgraph WORKER[" Worker Lifecycle"]
+        W1[" Register Profile\n(Cat + Exp + Desc)"] --> W2[" Master Embedding\n(Gemini Embedding-001)"]
+        W2 --> W3[" Searchable State"]
     end
+
+    subgraph JOB[" Employer Lifecycle"]
+        J1[" Post Job"] --> J2[" AI Enrichment\n(Agent: /process-job)"]
+        J2 --> J3[" Job Vector\n(Encoded Intent)"]
+        J3 --> J4[" Feedback Template\n(Tailored AI Questions)"]
+    end
+
+    subgraph MATCH["⚡ Neural Recommendation Engine"]
+        W2 & J3 --> M1[" Cosine Similarity\n(Tie-break < 2km)"]
+        M1 --> M2[" Recommendations\n(Ranked Match Score)"]
+    end
+
+    subgraph GAP[" Skill Gap Feedback Loop"]
+        J1 --> CL[" Close & Rate"]
+        CL -->|"Ratings + Comments"| G1[" Gemini 2.0 Flash\n(Agent: /process-skill-gap)"]
+        G1 --> G2["Holistic Skill String\n(Strengths vs Gaps)"]
+        G2 --> G3[" Gap Embedding\n(Targeted Vector)"]
+        G3 --> W_PROFILE[" Updated Worker Profile"]
+    end
+
+    subgraph RAG[" RAG: Skilling & Growth"]
+        W2 -->|"Upgradation Match"| R1[" Gov Schemes"]
+        G3 -->|"Improvement Match"| R1
+        R1 --> R2[" Learning Hub\n(Targeted Opportunity)"]
+    end
+
 ```
 
-#### Technical Deep-Dive
+### Technical Deep-Dive
 
-| Component | Technology | Implementation |
-|---|---|---|
-| **Profile Vectorization** | OpenAI `text-embedding-3-large` | Skills, job history, competency signals converted to semantic vector for cosine similarity matching. |
-| **Geohash Proximity** | ngeohash precision-6 (~1.2km2) | 9-cell neighborhood query via Firestore `IN` operator. O(1) spatial lookup. |
-| **Skill Gap Analysis** | LangChain AI Agent | Post-job feedback processing, structured gap strings matched against 150+ govt. schemes. |
-| **Employer-Side Discovery** | Background AI task | Auto-queries workers with `interestedToWork: true`, ranks by profile-job similarity. |
+| System | Technology | Implementation |
+|:---|:---|:---|
+| **Multimodal Skill Synthesis** | Gemini 2.0 Flash, LangGraph | When a job closes, the `skill_gap_agent` consumes heterogeneous feedback (3x star ratings + 1x textual comment). It performs a **Joint Vision-Language Evaluation** to synthesize a cohesive paragraph documenting verified strengths and critical skill gaps. |
+| **Dual-Vector Profiling** | Gemini Embedding-001 (768-dim) | Workers maintain two high-dimensional vectors: 1) **Master Profile** (Static: capabilities) and 2) **Skill Gap** (Dynamic: areas for improvement). This allows the system to differentiate between what a worker *can do* vs what they *need to learn*. |
+| **AI Recommendation Logic** | Cosine Similarity, Haversine | Uses a hybrid ranking algorithm. Primary sort is physical distance via Haversine. If distance delta is `< 2km`, the system pulls the `similarityScore` (0.0–1.0) between the worker and job vectors to break the tie, ensuring the "best match" is always on top. |
+| **RAG Skilling Engine** | Vector Retrieval (Firestore) | The `/learning-schemes` endpoint acts as a RAG retriever. It compares the worker's **Gap Vector** against the `gov_schemes` vector database. This ensures skilling recommendations are not generic but are mathematically targeted to fix the specific weaknesses identified by past employers. |
+| **Background Orchestration** | Fire-and-Forget (Axios) | AI processing for job enrichment and skill gap analysis is handled as non-blocking background tasks. Employers receive immediate 200 OK responses while Python agents process the intelligence loop, preventing UI latency for low-bandwidth users. |
+| **Integrated Safety** | Gemini 1.5 Flash (Safety Agent) | Every chat room and job description passes through an `analyze-safety` node. If the LLM detects predatory behavior, wage theft signals, or harassment, the status is automatically flagged to `REVIEW_REQUIRED` with a severity index (LOW–CRITICAL). |
 
 ---
 
@@ -358,13 +469,58 @@ KindShare is a hyper-local logistics intelligence system that uses AI to elimina
   <em>Web Portal — NGO Registration with auto-location detection and category preference selection</em>
 </p>
 
-#### Technical Deep-Dive
+### KindShare: Community Resource Exchange Workflow
+```mermaid
+  graph TD
+    subgraph APP[" Client Native — KindShare Portal"]
+        A[" KindShare Home\n(Role Selection)"] --> B1[" Donor Path"]
+        A --> B2[" Receiver Path"]
+
+        B1 --> C1[" NGO Discovery\n(Haversine Distance Sorting)"]
+        C1 --> D1[" Donation Form\n(Cloudinary Evidence Capture)"]
+        D1 --> E1[" Pending Approval\n(Donor Dashboard)"]
+
+        B2 --> C2[" Available Donations\n(NGO-Curated Feed)"]
+        C2 --> D2[" Claim Request\n(Purpose + Urgency)"]
+        D2 --> E2[" My Requests\n(Real-time Status tracking)"]
+        
+        B2 --> F2[" Public Request\n(Request-for-Aid form)"]
+    end
+
+    subgraph SERVER[" Node.js Core — Coordination Layer"]
+        D1 -->|"POST /donations"| G[" Donation Controller\n(Initial State: PENDING)"]
+        D2 -->|"POST /requests"| H[" Request Controller\n(Logic: Claim vs Request)"]
+        
+        G --> I[" Email Service\n(Donor Confirmation)"]
+        H --> J[" Notification Engine\n(NGO Alert)"]
+    end
+
+    subgraph LIFECYCLE[" Logic & Governance"]
+        K{{" NGO Dashboard\n(Management)"}} --> L[" Verify Donation\n(PENDING → AVAILABLE)"]
+        K --> M[" Match Claim\n(CLAIMED → COLLECTED)"]
+        K --> N[" Fulfillment\n(DISTRIBUTED + Feedback)"]
+        
+        O[" Admin Panel"] --> P[" NGO Vetting\n(Vetting Status Pipeline)"]
+    end
+
+    subgraph STORAGE[" Unified Data Layer"]
+        L --> DB1[" kindshare_donations"]
+        M --> DB2[" kindshare_requests"]
+        P --> DB3[" kindshare_ngos"]
+        N --> DB4[" kindshare_feedback"]
+    end
+```
+
+### Technical Deep-Dive
 
 | Component | Technology | Implementation |
-|---|---|---|
-| **AI Donation Matching** | Classification model + matching agent | Item attribute extraction, shelf-life estimation for perishables, NGO matching by proximity + needs + capacity + reliability. |
-| **Pickup Logistics** | Firebase Cloud Messaging, scheduling engine | Auto-generated pickup proposals based on donor/NGO availability. Volunteer coordination for large volumes. |
-| **Impact Analytics** | Real-time aggregation | Meals provided, kg redistributed, CO₂ saved from waste diversion, NGO utilization rates. |
+|:---|:---|:---|
+| **Geospatial NGO Discovery** | Haversine Algorithm, Google Maps API | Calculates real-time distance between user GPS coordinates and NGO headquarters. NGOs are ranked via a **Weighted Utility Score** (Rating desc + Distance asc) to ensure proximity and trust. |
+| **Donation Lifecycle Engine** | Firestore State Machine | Manages atomic transitions: `PENDING` (Initial) → `AVAILABLE` (Vetted) → `CLAIMED` (Matched) → `DISTRIBUTED` (Complete). Includes automated email triggers via `emailService.js` for every state change. |
+| **Resource Routing (NGO-Led)** | Category-Based Filtering | NGOs manage specific categories (Food, Clothes, Books, Medical). The system automatically routes donor items to the nearest relevant NGO to minimize logistics overhead and maximize local impact. |
+| **Evidence-Based Vetting** | Cloudinary, Vision Integrity | Every donation requires a high-resolution image upload via `uploadImage.js`. NGOs perform visual audits of item quality before moving the item to the `AVAILABLE` pool for public claiming. |
+| **Community Trust Layer** | Rating & Feedback System | Post-fulfillment, receivers provide a 5-star rating and textual feedback for both the items and the NGO. This data is aggregated in `ratingController.js` to calculate a dynamic trust score for all participants. |
+| **Identity & Security** | Auth0, JWT, Middleware | Secure role-based access control (RBAC) ensures only registered NGOs can approve donations and only verified donors/receivers can interact with the resource pool. |
 
 ---
 
@@ -387,20 +543,6 @@ UrbanConnect is a structured civic discourse platform where residents discuss lo
 
 #### AI Analytics Architecture
 
-```mermaid
-graph TD
-    A[User Posts on UrbanConnect] --> B[Node.js: createQuestion]
-    B --> C[MongoDB: Save Question]
-    B --> D["Fire-and-forget"]
-    D --> E["Python Agent: /analyze-post"]
-    E --> F["Node 1: Triage & Sentiment<br/>(Gemini 2.0 Flash)"]
-    F --> G["Node 2: Vectorize & Cluster<br/>(768d embedding + 12h window check)"]
-    G --> H{Post Type?}
-    H -->|MACRO_CLAIM| I["Node 3: RAG Fact-Check<br/>(Search announcements KB → LLM verify)"]
-    H -->|CIVIC_REPORT / GENERAL| J[Skip fact-check]
-    I --> K[MongoDB: Update Question.aiAnalysis]
-    J --> K
-```
 
 #### Data Flow Sequence
 
@@ -441,15 +583,16 @@ sequenceDiagram
     NodeJS->>MongoDB: Update Question.aiAnalysis
 ```
 
-#### Technical Deep-Dive
+### Technical Deep-Dive
 
-| Component | Technology | Implementation |
-|---|---|---|
-| **Triage & Sentiment** | Gemini 2.0 Flash | Classifies post type (CIVIC_REPORT, MACRO_CLAIM, GENERAL), assigns sentiment and urgency. |
-| **Vectorize & Cluster** | 768d embeddings, MongoDB Vector Search | Generates embedding, checks cosine similarity against posts from last 12h to detect emerging issue clusters. |
-| **RAG Fact-Check** | Vector search + LLM verification | For MACRO_CLAIM posts: searches official announcements KB, LLM verifies claim against retrieved context. |
-| **Voting Integrity** | Server-side `Vote` model (userId + targetId + targetType) | One vote per user per item, enforced server-side. Toggle on re-vote. Real-time count aggregation. |
-
+| System | Technology | Implementation |
+|:---|:---|:---|
+| **Multimodal Triage** | Gemini 2.0 Flash (Structured) | Analyzes text + up to 3 images to classify posts into `CIVIC_REPORT` (witnessed issues), `POLICY_RUMOR` (fact-check required), or `GENERAL`. Assigns emotional [sentiment](cci:1://file:///Users/aryangupta/Documents/Projects/dev/agents/brain/civic_analysis_agent.py:59:0-124:9) (ALARMING to POSITIVE) and `urgency` (LOW to CRITICAL) for authority routing. |
+| **Emerging Issue Clustering** | Cosine Similarity (Firestore/Mongo) | Uses a **12-hour sliding window** to compare new embeddings against recent posts. If similarity reaches **≥ 0.75** and a group of **3+ posts** forms, the system automatically creates an AI-generated headline and summary to alert city officials of an emerging cluster. |
+| **Hybrid RAG Fact-Check** | Vector Search + Tavily API | Exclusive to `POLICY_RUMOR` posts. This node retrieves top-5 official announcements from the municipal database. If local data is insufficient (<2 results), it triggers a **Tavily Web Search** fallback to verify the rumor against live news sources before flagging misinformation. |
+| **Semantic Vectorization** | Gemini Embedding-001 (768-dim) | Generates dense 768-dimensional embeddings by concatenating `title + description`. This unified vector is utilized for both duplicate detection within the clustering engine and context-matching in the RAG pipeline. |
+| **Social Integrity Layer** | Server-side Vote Model + Redis | Implements strict vote integrity via a [QuestionVote](cci:1://file:///Users/aryangupta/Documents/Projects/dev/server/src/controllers/urbanconnect.controller.js:454:0-504:2) model (1:1 constraint). Voting is handled via an atomic toggle system (Add/Update/Delete). High-concurrency feeds are optimized via **geohash-based Redis caching** (`urbanconnect:questions:*`) with automated invalidation. |
+| **Authority Handover** | TaggedAuthority Schema | Posts can be tagged with specific `Administration` IDs. The system logic routes `CIVIC_REPORT` data directly to these tagged departments, while `ALARMING` or `CRITICAL` sentiment triggers escalated visibility in the admin command panel. |
 ---
 
 ### 7. Civic Intelligence Dashboard — AI Decision Support for Local Leaders *(Category 3)*
@@ -467,11 +610,6 @@ The Civic Intelligence Dashboard is UrbanFlow's dedicated answer to **Category 3
 
 | Capability | Description | AI Technology |
 |---|---|---|
-| **Multi-Modal Issue Intake** | Voice (Whisper), text (NLP), image (Vision AI) → uniform schema: location, category, severity, affected population, recurrence | OpenAI Whisper, Vertex AI, NLP Pipeline |
-| **ML Prioritization Engine** | Composite score: urgency × impact radius × recurrence frequency × resource availability | Multi-factor ML model on historical civic data |
-| **AI Field Verification** | GPS cross-validation, timestamp authenticity check, computer vision content validation, confidence scoring | Computer Vision, metadata forensics |
-| **Sentiment Pipeline** | Continuous social media analysis: sentiment classification, LDA topic modeling, misinformation detection | NLP (LDA, BERT-class models) |
-| **AI Communication Generator** | Drafts verified public announcements from live data. Tone selector: formal / empathetic / informational. Inline data citations. | LLM with system data grounding |
 | **Public Trust Index** | Real-time composite: resolution rate + citizen sentiment + scheme progress. Visualized per ward and time period. | Aggregated multi-stream analytics |
 
 ---
@@ -519,7 +657,6 @@ The Civic Intelligence Dashboard is UrbanFlow's dedicated answer to **Category 3
 | **NativeWind** | v4 (Tailwind for RN) | Mobile UI styling | Utility-first styling with responsive breakpoints in React Native |
 | **React.js** | 18+ (Vite bundler) | Admin web dashboard | Fast HMR, tree-shaking, data-dense table/chart rendering |
 | **Tailwind CSS** | v3 | Web dashboard styling | Rapid UI prototyping with consistent design tokens |
-| **Leaflet** | 1.9+ | Complaint heatmaps, geospatial overlays | Open-source, lightweight map rendering with custom tile layers |
 | **Google Maps Platform** | Maps SDK, Directions API | Safe route rendering, geocoding | Industry-standard mapping with real-time traffic data |
 | **Expo Router** | v3 | File-based routing for mobile | Type-safe navigation, deep linking, screen preloading |
 
@@ -540,10 +677,6 @@ The Civic Intelligence Dashboard is UrbanFlow's dedicated answer to **Category 3
 |---|---|---|---|
 | **LangChain** | Python SDK | Multi-agent orchestration | ReAct prompting, tool-use pipelines, structured agent networks |
 | **Google Vertex AI** | Gemini 2.0 Flash | Vision-language analysis, complaint classification | Multimodal understanding, low-latency inference |
-| **OpenAI GPT-4o** | API | Skill gap inference, NL generation | State-of-the-art reasoning for complex textual analysis |
-| **OpenAI Whisper** | API | Voice grievance transcription | Multilingual speech-to-text, robust to ambient noise |
-| **OpenAI `text-embedding-3-large`** | 3072d vectors | Worker/job/complaint vectorization | High-dimensional semantic representation for cosine similarity |
-| **TensorFlow Lite** | On-device | Acoustic distress classification | Battery-efficient on-device inference, no network dependency for SOS |
 | **Google Earth Engine** | JS + Python APIs | Satellite environmental monitoring | Petabyte-scale satellite catalog, server-side computation |
 
 ### Database & Storage Layer
@@ -556,20 +689,63 @@ The Civic Intelligence Dashboard is UrbanFlow's dedicated answer to **Category 3
 | **Redis** | 7.0+ | Cache, rate limiting, sessions | In-memory speed for spatial query caching and API throttling |
 | **Cloudinary** | — | Media CDN | Complaint images, profile photos, resolution proof with auto-optimization |
 
-### Infrastructure & DevOps
+###  Infrastructure & DevOps Architectural Specs
 
-| Technology | Role |
-|---|---|
-| **Firebase Cloud Messaging (FCM)** | Push notifications: SOS broadcasts, status updates, dispatch alerts |
-| **ngeohash** | Precision-4 (~39km²) and precision-6 (~1.2km²) spatial indexing |
-| **Google Maps Geocoding API** | Address ↔ coordinate resolution |
-| **Expo EAS** | Over-the-air mobile updates, CI/CD builds |
+| Component | Technology | Implementation Deep-Dive |
+|:---|:---|:---|
+| **Identity & Access** | **Auth0** | Implements **JWT-based OIDC** for unified mobile/web sessions. The backend uses `express-oauth2-jwt-bearer` to enforce strict audience/issuer validation, securing all SOS and user-sensitive endpoints. |
+| **Asset Pipeline** | **Cloudinary** | Acts as the **Global CDN** for municipal evidence and NGO donations. Uses `upload_stream` for direct binary-to-cloud piping, eliminating local disk footprint and ensuring sub-second image availability. |
+| **Persistence Layer** | **MongoDB Atlas** | A distributed document database handling the system's **Social Graph** and **Closen-Loop Workflows**. Optimized with compound indexes on `geohash` and `status` for rapid municipal lookup. |
+| **Distributed Caching** | **Redis Labs** | Transparent caching layer for high-concurrency feeds (e.g., `urbanconnect:questions:*`). Uses a **60-second TTL** to balance real-time freshness with sub-100ms response benchmarks. |
+| **Async Messaging** | **CloudAMQP** | Provides a **RabbitMQ** broker that decouples the Express API from heavy Python AI processing. Manages the lifecycle of `CIVIC_REPORT` and `SKILL_GAP` tasks via robust message queuing. |
+| **Real-time Sync** | **Firebase** | Orchestrates **Real-Time Database (RTDB)** listeners for high-frequency coordinate updates (SOS movement) and **FCM** for critical, out-of-band emergency push notifications. |
+| **Spatial Indexing** | **ngeohash** | Multi-precision geohashing (**Precision-4** for regional NGO discovery, **Precision-6** for local threat zones). Enables efficient proximity queries without the overhead of heavy geospatial engines. |
+| **Mobile DevOps** | **Expo EAS** | Managed **CI/CD pipeline** for Android/iOS. Leverages **Over-The-Air (OTA)** updates to push critical security logic or safety bugfixes to devices without requiring a full App Store review cycle. |
+| **Communication** | **Nodemailer** | Configured with an authenticated **SMTP gateway** to trigger transactional automation, such as NGO approval notices and citizen "Proof-of-Resolution" email reports. |
 
 ---
 
+### System Architecture & DevOps Flow
+```mermaid
+graph TD
+    subgraph CLIENT[" Client Native (Expo)"]
+        A[" Auth0 Client\n(JWT/OAuth2)"]
+        B[" Expo Location\n(Geohash-6/8)"]
+        C[" Expo Notifications\n(FCM Entry)"]
+    end
+
+    subgraph AUTH[" Identity & Security"]
+        A <--> D[" Auth0 Cloud\n(Identity Provider)"]
+    end
+
+    subgraph BACKEND[" Backend Infrastructure (Node.js)"]
+        E[" Express Server"]
+        F[" Redis Cache\n(Feed Optimization)"]
+        G[" CloudAMQP\n(RabbitMQ Queue)"]
+    end
+
+    subgraph STORAGE[" Persistent Data & Assets"]
+        H[" MongoDB Atlas\n(Document Store)"]
+        I[" Firebase RTDB\n(SOS Real-time)"]
+        J[" Cloudinary\n(Evidence Storage)"]
+    end
+
+    subgraph AGENTS[" AI Intelligence Layer"]
+        G <--> K[" Python Agents\n(Gemini 2.0/Rag)"]
+    end
+
+    E --> F
+    E --> G
+    E --> H
+    E --> I
+    E --> J
+    E --> L[" Gmail SMTP\n(Nodemailer alerts)"]
+
+```
+
 ## AI Pipeline Deep-Dives
 
-### Multi-Agent Orchestration (LangChain)
+### Multi-Agent Orchestration (LangGraph)
 
 ```mermaid
 graph LR
