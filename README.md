@@ -817,5 +817,5 @@ UrbanFlow/
 
 <p align="center">
   <strong>UrbanFlow — Every citizen action intelligently processed. Every civic decision AI-informed.</strong><br>
-  <em>Built for the city of tomorrow. Shipped at SANKALP 2026.</em>
+  <em>Made with Love ❤️ by Team UrbanFlow</em>
 </p>
