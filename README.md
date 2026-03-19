@@ -345,7 +345,7 @@ KindShare is a hyper-local logistics intelligence system that uses AI to elimina
 <p align="center">
   <img src="ReadmeMedia/React_Native/kindshare/native/Kindshare_home.jpg" width="200" alt="KindShare home screen — Donate Items, Receive Items, My Donations, My Requests">
   &nbsp;&nbsp;
-  <img src="ReadmeMedia/React_Native/kindshare/native/Kindshare_donation_window.jpg" width="200" alt="KindShare donation category selector — Clothes, Books, Medines, Electronics, Others with location-based NGO sorting">
+  <img src="ReadmeMedia/React_Native/kindshare/native/Kindshare_donation_window.jpg" width="200" alt="KindShare donation category selector — Clothes, Books, Medicines, Electronics, Others with location-based NGO sorting">
   &nbsp;&nbsp;
   <img src="ReadmeMedia/React_Native/kindshare/native/NGO_accepting_clothes.jpg" width="200" alt="NGOs accepting Clothes — sorted by rating and proximity">
   &nbsp;&nbsp;
@@ -381,7 +381,7 @@ UrbanConnect is a structured civic discourse platform where residents discuss lo
   &nbsp;&nbsp;
   <img src="ReadmeMedia/React_Native/UrbanConnect/UrbanConnect_rising_issues.jpg" width="200" alt="UrbanConnect Explore — Emerging Issues showing AI-detected cluster with 3 reports">
   &nbsp;&nbsp;
-  <img src="ReadmeMedia/React_Native/UrbanConnect/UrbanConnect_Announcement.jpg" width="200" alt="UrbanConnect Announcements — Official announcements from Prayagraj Administration including Traffic Police notices">
+  <img src="ReadmeMedia/React_Native/UrbanConnect/UrbanConnect_Announcement.jpg" width="200" alt="UrbanConnect Announcements — Official announcements from City Administration including Traffic Police notices">
   &nbsp;&nbsp;
   <img src="ReadmeMedia/React_Native/UrbanConnect/UrbanConnect_Profile.jpg" width="200" alt="UrbanConnect Profile — User profile with Posts, Likes, and Saved tabs showing civic report submissions">
 </p>
