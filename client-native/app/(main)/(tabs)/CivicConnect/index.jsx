@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { View, Text, TouchableOpacity, Platform, ActivityIndicator, Alert } from "react-native";
 import { useRouter } from "expo-router";
-import { ArrowLeft, ArrowRight, List, MapPinOff, MapPin, AlertCircle } from "lucide-react-native";
+import { ArrowLeft, ArrowRight, List } from "lucide-react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as Location from 'expo-location';
@@ -56,42 +56,24 @@ export default function ComplaintsPage() {
     }
   };
 
-  // Run on mount (removed auto-fetch for gate)
+  // Fetch location automatically on mount
   useEffect(() => {
-    // fetchLocation(); 
+    fetchLocation(); 
   }, []);
 
-  // --- UI: Location Gate ---
+  // --- UI: Loading while fetching location ---
   if (!userLocation) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: '#050510', justifyContent: 'center', alignItems: 'center', padding: 24 }}>
-        <View style={{ width: '100%', maxWidth: 400, backgroundColor: 'rgba(255,255,255,0.03)', padding: 32, borderRadius: 24, alignItems: 'center' }}>
-          <View style={{ height: 80, width: 80, borderRadius: 40, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center', marginBottom: 24 }}>
-            <MapPin size={40} color="#818cf8" />
-          </View>
-          <Text style={{ fontSize: 28, fontWeight: 'bold', color: '#fff', marginBottom: 24 }}>Enable Location</Text>
-
-          <View style={{ backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 16, padding: 16, flexDirection: 'row', gap: 12, marginBottom: 32, width: '100%' }}>
-            <AlertCircle size={20} color={locationError ? "#ef4444" : "#818cf8"} style={{ marginTop: 2 }} />
-            <View style={{ flex: 1 }}>
-              <Text style={{ color: locationError ? "#ef4444" : '#fff', fontSize: 14, fontWeight: '600' }}>
-                {locationError ? "Access Required" : "Civic Awareness"}
-              </Text>
-              <Text style={{ color: '#d4d4d8', fontSize: 12, marginTop: 4, lineHeight: 18 }}>
-                {locationError || "We need your location to accurately tag and route your reports to the correct municipal departments."}
-              </Text>
-            </View>
-          </View>
-
-          <TouchableOpacity onPress={fetchLocation} disabled={isLocating}
-            style={{ width: '100%', backgroundColor: 'rgba(255,255,255,0.06)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', paddingVertical: 18, borderRadius: 16, alignItems: 'center', marginBottom: 16 }}>
-            {isLocating ? <ActivityIndicator color="#818cf8" /> : <Text style={{ color: '#fff', fontSize: 16, fontWeight: 'bold' }}>Allow Access</Text>}
+      <SafeAreaView style={{ flex: 1, backgroundColor: '#050510', justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color="#818cf8" />
+        <Text style={{ color: '#a1a1aa', fontSize: 14, marginTop: 16, fontWeight: '500' }}>
+          {locationError || 'Fetching your location...'}
+        </Text>
+        {locationError && (
+          <TouchableOpacity onPress={fetchLocation} style={{ marginTop: 16, backgroundColor: 'rgba(255,255,255,0.06)', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12 }}>
+            <Text style={{ color: '#fff', fontSize: 14, fontWeight: '600' }}>Retry</Text>
           </TouchableOpacity>
-
-          <TouchableOpacity onPress={() => router.back()} style={{ paddingVertical: 8 }}>
-            <Text style={{ color: '#a1a1aa', fontSize: 14, fontWeight: '500' }}>Skip for now</Text>
-          </TouchableOpacity>
-        </View>
+        )}
       </SafeAreaView>
     );
   }
