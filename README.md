@@ -345,7 +345,7 @@ KindShare is a hyper-local logistics intelligence system that uses AI to elimina
 <p align="center">
   <img src="ReadmeMedia/React_Native/kindshare/native/Kindshare_home.jpg" width="200" alt="KindShare home screen — Donate Items, Receive Items, My Donations, My Requests">
   &nbsp;&nbsp;
-  <img src="ReadmeMedia/React_Native/kindshare/native/Kindshare_donation_window.jpg" width="200" alt="KindShare donation category selector — Clothes, Books, Medicines, Electronics, Others with location-based NGO sorting">
+  <img src="ReadmeMedia/React_Native/kindshare/native/Kindshare_donation_window.jpg" width="200" alt="KindShare donation category selector — Clothes, Books, Medines, Electronics, Others with location-based NGO sorting">
   &nbsp;&nbsp;
   <img src="ReadmeMedia/React_Native/kindshare/native/NGO_accepting_clothes.jpg" width="200" alt="NGOs accepting Clothes — sorted by rating and proximity">
   &nbsp;&nbsp;
