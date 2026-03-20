@@ -50,9 +50,13 @@ export default function AuthSyncProvider({ children }) {
         const token = credentials?.accessToken;
 
         if (token) {
-          await api.post("/api/auth/sync-user", {}, {
+          const res=await api.post("/api/auth/sync-user", {}, {
             headers: { Authorization: `Bearer ${token}` },
           });
+          useAuthStore.getState().setUser({
+            ...user,
+            ...res.data
+          })
           hasSyncedWithBackend.current = true;
           console.log("Backend sync complete");
         }

@@ -3,11 +3,24 @@ import { View, Text } from "react-native";
 import { Stack, Redirect } from "expo-router";
 import { useAuth0 } from "react-native-auth0";
 import { useAuthStore } from "../../store/useAuthStore";
+import { useNotificationStore } from "../../store/useNotificationStore";
 import CircularText from "../../components/ui/CircularText";
 
 export default function ProtectedLayout() {
   const { isLoading } = useAuth0();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const storedUser = useAuthStore((s) => s.user);
+  const connectNotifications = useNotificationStore((s) => s.connect);
+  const disconnectNotifications = useNotificationStore((s) => s.disconnect);
+
+  // Auto-connect SSE when authenticated
+  useEffect(() => {
+    const userId = storedUser?.sub || storedUser?.id;
+    if (isAuthenticated && userId) {
+      connectNotifications(userId);
+    }
+    return () => disconnectNotifications();
+  }, [isAuthenticated, storedUser?.sub, storedUser?.id]);
 
   if (!isAuthenticated && !isLoading) {
     return <Redirect href="/" />;
@@ -28,4 +41,4 @@ export default function ProtectedLayout() {
       )}
     </View>
   );
-}
+}

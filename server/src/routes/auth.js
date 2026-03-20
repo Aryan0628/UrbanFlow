@@ -26,26 +26,39 @@ router.post("/sync-user", checkJwt, async (req, res) => {
     );
 
     // Firestore reference
-const userRef = db.collection("users").doc(user.sub);
+    const userRef = db.collection("users").doc(user.sub);
+    let doc = await userRef.get();
 
-const doc = await userRef.get();
+    if (!doc.exists) {
+      const newUser = {
+        uid: user.sub,
+        email: user.email ?? null,
+        name: user.name ?? null,
+        picture: user.picture ?? null,
+        createdAt: new Date(),
+        rating: 3,
+        interestedToWork: false,
+        hasSeenWorkerPrompt: false,
+        completedJobs: 0,
+        workerCategories: [],
+        safe_walk_streak: 0,
+        false_sos_count: 0,
+        trust_score: 5.0,
+        is_verified: false,
+      };
+      await userRef.set(newUser);
+      doc = await userRef.get(); // Refresh doc
+    }
 
-if (!doc.exists) {
-  await userRef.set({
-    uid: user.sub,
-    email: user.email ?? null,
-    name: user.name ?? null,
-    picture: user.picture ?? null,
-    createdAt: new Date(),
-    rating: 3,
-    interestedToWork: false,
-    hasSeenWorkerPrompt: false,
-    completedJobs: 0,
-    workerCategory: null
-  });
-}
+    const userData = doc.data();
 
-    return res.json({ success: true });
+    return res.json({
+      success: true,
+      safe_walk_streak: userData.safe_walk_streak ?? 0,
+      false_sos_count: userData.false_sos_count ?? 0,
+      is_verified: userData.is_verified ?? false,
+      trust_score: userData.trust_score ?? 5.0,
+    });
   } catch (error) {
     console.error("SYNC USER ERROR:", error.message);
     return res.status(401).json({ error: "Unauthorized" });

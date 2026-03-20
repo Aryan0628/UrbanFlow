@@ -3,6 +3,7 @@ import { View, Text, Pressable, Animated, Platform, Alert, StyleSheet, Linking }
 import { Mic, Phone, ShieldAlert, X } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { Audio } from 'expo-av';
+import { ExpoSpeechRecognitionModule, useSpeechRecognitionEvent } from 'expo-speech-recognition';
 import { useAuthStore } from '../../../../../store/useAuthStore';
 import { stopBackgroundRecording } from '../_utils/notificationActions';
 export default function SOSBottomBar({ sosActive, onToggleSOS, currentLocation, isRecordingExternal, onToggleRecordingExternal }) {
@@ -14,6 +15,12 @@ export default function SOSBottomBar({ sosActive, onToggleSOS, currentLocation, 
     const [callCountdown, setCallCountdown] = useState(null);
     const callIntervalRef = useRef(null);
     const stopRecordingRef = useRef(null); // Ref for stopping from external
+    const prevSosActiveRef = useRef(sosActive);
+
+    // AI/Mic Mutually Exclusive State Management
+    const isSisterHoodActive = useRef(true); // Should background listening run
+    const wasSisterHoodPausedForRecording = useRef(false); // Did the user intentionally steal the mic?
+    const startVoiceLoopTimeout = useRef(null);
 
     // Sync external recording state (from notification)
     useEffect(() => {
@@ -21,6 +28,100 @@ export default function SOSBottomBar({ sosActive, onToggleSOS, currentLocation, 
             setIsRecording(isRecordingExternal);
         }
     }, [isRecordingExternal]);
+
+    // Auto-start recording when SOS becomes active
+    useEffect(() => {
+        if (sosActive && !prevSosActiveRef.current) {
+            if (!isRecording) {
+                console.log('SOS Active: Auto-starting voice recording...');
+                startRecording();
+            }
+        }
+        prevSosActiveRef.current = sosActive;
+    }, [sosActive, isRecording]);
+
+    // Background Voice Trigger Loop: Setup listeners via hooks
+    useSpeechRecognitionEvent("error", (e) => {
+        if (e.error?.includes('no-speech') || e.error?.includes('no-match')) return;
+        console.warn("Speech Recognition Error:", e);
+    });
+
+    useSpeechRecognitionEvent("end", async () => {
+        // The Infinite Loop Logic: Reclaim the microphone automatically when speech ends natively
+        // ONLY if the app SOS listener is active AND we didn't pause it for explicit expo-av usage
+        if (isSisterHoodActive.current && !wasSisterHoodPausedForRecording.current) {
+            try {
+                await startVoiceLoop();
+            } catch (e) {
+                console.error("Failed to re-trigger Speech Recognition loop internally", e);
+            }
+        }
+    });
+
+    useSpeechRecognitionEvent("result", async (e) => {
+        if (!e.results || e.results.length === 0) return;
+
+        // Flatten the multi-dimensional results array and check for triggers
+        // expo-speech-recognition on Android/iOS sometimes directly returns the transcript string on the first index
+        const transcriptions = e.results.flatMap((result) => {
+            if (typeof result === 'string') return [result.toLowerCase()];
+            if (result.transcript) return [result.transcript.toLowerCase()];
+            if (result.alternatives) return result.alternatives.map((alt) => alt.transcript.toLowerCase());
+            return [];
+        });
+        const triggered = transcriptions.some((t) => t.includes('help') || t.includes('sos'));
+
+        if (triggered && !isRecording) {
+            console.log("🗣️ SOS Voice Command Detected! Triggering Emergency Sequence...");
+
+            // 1. Immediately kill the Voice loop so it frees resources for the subsequent automation
+            if (!wasSisterHoodPausedForRecording.current) {
+                try {
+                    await ExpoSpeechRecognitionModule.stop();
+                } catch (err) {
+                    console.log("Failed to stop Speech Recognition immediately", err);
+                }
+            }
+
+            // 2. We don't want it to immediately restart the loop onEnd
+            wasSisterHoodPausedForRecording.current = true;
+
+            // 3. Fire the UI interaction (this will also chain into auto-recording via the SOS use-effect above)
+            onToggleSOS(true);
+            if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        }
+    });
+
+    // Background Voice Trigger Loop: Setup Mount/Unmount
+    useEffect(() => {
+        const init = async () => {
+            const perms = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
+            if (perms.status === 'granted' && isSisterHoodActive.current) {
+                startVoiceLoop();
+            }
+        };
+        init();
+
+        return () => {
+            console.log('Voice API Unmounting - Destroying active loop');
+            ExpoSpeechRecognitionModule.stop();
+            if (startVoiceLoopTimeout.current) clearTimeout(startVoiceLoopTimeout.current);
+        };
+    }, []);
+
+    const startVoiceLoop = async () => {
+        try {
+            await ExpoSpeechRecognitionModule.start({
+                lang: 'en-US',
+                interimResults: true, // We need fast detection
+                continuous: true,     // Keep listening within the session
+            });
+        } catch (e) {
+            if (!e.message?.includes('already started')) {
+                console.error('Initial Speech Recognition loop failed to start:', e);
+            }
+        }
+    };
 
     // Pulse animation for Active state
     const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -62,6 +163,13 @@ export default function SOSBottomBar({ sosActive, onToggleSOS, currentLocation, 
                 Alert.alert("Permission Required", "Please allow microphone access in your device settings to use Voice SOS.");
                 return;
             }
+
+            // --- MUTUALLY EXCLUSIVE HARDWARE HANDOFF (PRESS IN) ---
+            wasSisterHoodPausedForRecording.current = true;
+            try {
+                // Must explicitly tell the infinite voice loop to stop, forcing hardware yield.
+                await ExpoSpeechRecognitionModule.stop();
+            } catch (ignored) { }
 
             await Audio.setAudioModeAsync({
                 allowsRecordingIOS: true,
@@ -138,6 +246,22 @@ export default function SOSBottomBar({ sosActive, onToggleSOS, currentLocation, 
             }
         } catch (error) {
             console.error("❌ Error stopping or uploading recording:", error);
+        } finally {
+            // --- MUTUALLY EXCLUSIVE HARDWARE RECLAIM (PRESS OUT) ---
+            wasSisterHoodPausedForRecording.current = false;
+
+            // Wait 300ms buffer to ensure expo-av has fully released hardware bindings before reclaiming
+            if (startVoiceLoopTimeout.current) clearTimeout(startVoiceLoopTimeout.current);
+            startVoiceLoopTimeout.current = setTimeout(async () => {
+                if (isSisterHoodActive.current) {
+                    try {
+                        console.log("🔄 Reclaiming microphone for background SOS trigger...");
+                        await startVoiceLoop();
+                    } catch (e) {
+                        console.error('Failed to reclaim background voice loop', e);
+                    }
+                }
+            }, 300);
         }
     }
 

@@ -73,8 +73,22 @@ export const handleNotificationAction = async (response) => {
                 formData.append('userId', state.userId);
                 formData.append('userName', 'User (Background)');
                 formData.append('roomId', 'SISTERHOOD_NATIVE_SOS');
-                // Note: lat/lng will be 0 if the background location hasn't ticked yet, 
-                // but we at least send the userId for the backend to associate it.
+
+                // Get last known location for the recording
+                let bgLat = 0;
+                let bgLng = 0;
+                try {
+                    const Location = require('expo-location');
+                    const lastLoc = await Location.getLastKnownPositionAsync();
+                    if (lastLoc) {
+                        bgLat = lastLoc.coords.latitude;
+                        bgLng = lastLoc.coords.longitude;
+                    }
+                } catch (locErr) {
+                    console.warn('Could not get location for background recording:', locErr);
+                }
+                formData.append('lat', bgLat);
+                formData.append('lng', bgLng);
 
                 console.log('Uploading background voice note...');
                 fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/voice/upload`, {
