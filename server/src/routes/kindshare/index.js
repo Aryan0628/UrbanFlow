@@ -1,10 +1,11 @@
 import express from "express";
-import { 
-  registerNGO, 
-  getNGOs, 
-  verifyEmail, 
+import {
+  registerNGO,
+  getNGOs,
+  verifyEmail,
   getNGOStatus,
-  getNGOsByAdminEmail
+  getNGOsByAdminEmail,
+  getNGOByEmail
 } from "../../controllers/kindshare/ngoController.js";
 
 import donationRoutes from "./donationRoutes.js";
@@ -26,6 +27,7 @@ router.get("/ngos/status/:id", getNGOStatus);
 
 /* ⭐ ADD THIS ROUTE */
 router.get("/ngos/admin-ngos", getNGOsByAdminEmail);
+router.get("/ngos/by-email", getNGOByEmail);
 
 /* DONATION ROUTES */
 router.use("/donations", donationRoutes);
@@ -35,8 +37,8 @@ router.use("/admin", adminRoutes);
 
 /* USER ROUTES */
 router.use("/users", userRoutes);
-router.use("/complaints",complaintRoutes);
+router.use("/complaints", complaintRoutes);
 router.use("/requests", requestRoutes);
-router.use("/feedback",feedbackRoutes);
+router.use("/feedback", feedbackRoutes);
 
 export default router;

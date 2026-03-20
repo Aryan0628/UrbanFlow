@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Building2, User, Mail, Phone, MapPin, MapPinned, FileText, Shirt, BookOpen, Pill, Laptop, Package } from "lucide-react";
+import { useAuth0 } from "@auth0/auth0-react";
+import { ArrowLeft, Building2, User, Mail, Phone, MapPin, MapPinned, FileText, Shirt, BookOpen, Pill, Laptop, Package, Settings, AlertCircle } from "lucide-react";
 
 const PAGE = { minHeight: "100vh", backgroundColor: "#050510", padding: "32px 40px", display: "flex", justifyContent: "center" };
 const HEADER = { display: "flex", alignItems: "center", gap: "12px", marginBottom: "40px" };
@@ -11,6 +12,7 @@ const LABEL = { fontSize: "12px", fontWeight: "600", color: "#a1a1aa", marginBot
 const CAT_ICONS = { Clothes: Shirt, Books: BookOpen, Medicines: Pill, Electronics: Laptop, Others: Package };
 
 export default function RegisterNGO() {
+  const { user, isAuthenticated } = useAuth0();
   const [ngoName, setNgoName] = useState("");
   const [adminName, setAdminName] = useState("");
   const [email, setEmail] = useState("");
@@ -20,7 +22,40 @@ export default function RegisterNGO() {
   const [categories, setCategories] = useState([]);
   const [lat, setLat] = useState(null);
   const [lon, setLon] = useState(null);
+  const [isRegistered, setIsRegistered] = useState(false);
+  const [existingNgo, setExistingNgo] = useState(null);
+  const [checking, setChecking] = useState(true);
   const navigate = useNavigate();
+
+  // Check if already registered
+  useEffect(() => {
+    if (!isAuthenticated || !user?.email) {
+      setChecking(false);
+      return;
+    }
+
+    setEmail(user.email);
+    setAdminName(user.name || "");
+
+    const checkRegistration = async () => {
+      try {
+        const res = await fetch(`http://localhost:3000/api/kindshare/ngos/by-email?email=${user.email}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.isNGO) {
+            setIsRegistered(true);
+            setExistingNgo(data);
+          }
+        }
+      } catch (err) {
+        console.error("Check Registration Error:", err);
+      } finally {
+        setChecking(false);
+      }
+    };
+
+    checkRegistration();
+  }, [user, isAuthenticated]);
   const categoryOptions = ["Clothes", "Books", "Medicines", "Electronics", "Others"];
 
   const handleCategoryChange = (cat) => setCategories(prev => prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat]);
@@ -75,6 +110,41 @@ export default function RegisterNGO() {
             <p style={{ color: "#71717a", fontSize: "13px", margin: "4px 0 0 0" }}>Fill in the details to register for approval</p>
           </div>
         </div>
+
+        {/* Already Registered Notice */}
+        {!checking && isRegistered && (
+          <div style={{
+            backgroundColor: "rgba(129,140,248,0.1)",
+            border: "1px solid rgba(129,140,248,0.2)",
+            borderRadius: "18px",
+            padding: "24px",
+            marginBottom: "32px",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center"
+          }}>
+            <button
+              onClick={() => navigate("/kindshare/select-ngo")}
+              style={{
+                width: "100%",
+                backgroundColor: "#818cf8",
+                color: "#fff",
+                border: "none",
+                padding: "16px 20px",
+                borderRadius: "12px",
+                cursor: "pointer",
+                fontWeight: "700",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "8px",
+                fontSize: "14px"
+              }}
+            >
+              <Settings size={18} /> Already Registered NGO →
+            </button>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit}>
           {/* Section: Organization Info */}
