@@ -132,6 +132,9 @@ app.use("/api/announcements", announcementRoutes);
 import civicAnalyticsRoutes from "./src/routes/civicAnalytics.routes.js";
 app.use("/api/civic-analytics", civicAnalyticsRoutes);
 
+import commandRoutes from "./src/routes/command.route.js";
+app.use("/api/command", commandRoutes);
+
 app.get("/health", (req, res) => res.status(200).json({ message: "server is healthy" }));
 
 export { app };
