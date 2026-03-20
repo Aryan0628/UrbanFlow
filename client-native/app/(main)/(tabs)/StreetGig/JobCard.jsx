@@ -2,21 +2,17 @@ import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { MapPin, Clock, IndianRupee, Sparkles, MessageSquare } from 'lucide-react-native';
 
-export default function JobCard({ job, isSelected, onClick, onChat }) {
+export default function JobCard({ job, isSelected, onChat }) {
   return (
     <View
       style={{
         borderRadius: 16,
-        borderWidth: 1,
         marginBottom: 12,
         backgroundColor: isSelected ? 'rgba(59,130,246,0.08)' : 'rgba(255,255,255,0.03)',
-        borderColor: isSelected ? 'rgba(59,130,246,0.3)' : 'rgba(255,255,255,0.08)',
         overflow: 'hidden'
       }}
     >
-      <TouchableOpacity
-        onPress={onClick}
-        activeOpacity={0.8}
+      <View
         style={{ padding: 16 }}
       >
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16 }}>
@@ -35,9 +31,9 @@ export default function JobCard({ job, isSelected, onClick, onChat }) {
 
           {/* AI Recommendation Chip */}
           {job.recommendation && (
-            <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(245,158,11,0.15)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12, marginBottom: 8, alignSelf: 'flex-start' }}>
-              <Sparkles size={12} color="#fbbf24" style={{ marginRight: 4 }} />
-              <Text style={{ color: '#fcd34d', fontSize: 11, fontWeight: '600' }}>AI Match</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.08)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12, marginBottom: 8, alignSelf: 'flex-start' }}>
+              <Sparkles size={12} color="#e4e4e7" style={{ marginRight: 4 }} />
+              <Text style={{ color: '#e4e4e7', fontSize: 11, fontWeight: '600' }}>AI Match</Text>
             </View>
           )}
 
@@ -72,28 +68,28 @@ export default function JobCard({ job, isSelected, onClick, onChat }) {
           <View style={{
             flexDirection: 'row', alignItems: 'center', gap: 2,
             paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, borderWidth: 1,
-            backgroundColor: isSelected ? 'rgba(59,130,246,0.15)' : 'rgba(16,185,129,0.08)',
-            borderColor: isSelected ? 'rgba(59,130,246,0.25)' : 'rgba(16,185,129,0.15)',
+            backgroundColor: isSelected ? 'rgba(59,130,246,0.15)' : 'rgba(255,255,255,0.06)',
+            borderColor: isSelected ? 'rgba(59,130,246,0.25)' : 'rgba(255,255,255,0.1)',
           }}>
-            <IndianRupee size={12} color={isSelected ? '#93c5fd' : '#34d399'} />
-            <Text style={{ fontWeight: 'bold', fontSize: 14, color: isSelected ? '#93c5fd' : '#34d399' }}>
+            <IndianRupee size={12} color={isSelected ? '#93c5fd' : '#e4e4e7'} />
+            <Text style={{ fontWeight: 'bold', fontSize: 14, color: isSelected ? '#93c5fd' : '#e4e4e7' }}>
               {job.amount || 'N/A'}
             </Text>
           </View>
         </View>
         </View>
-      </TouchableOpacity>
+      </View>
 
       {/* Action Footer: Chat With Employer */}
       <View style={{
-         flexDirection: 'row', borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.06)', backgroundColor: 'rgba(255,255,255,0.01)'
+         flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.01)'
       }}>
          <TouchableOpacity 
            onPress={() => onChat(job)}
            style={{ flex: 1, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 12, gap: 8 }}
          >
-            <MessageSquare size={16} color="#a855f7" />
-            <Text style={{ color: '#c084fc', fontWeight: 'bold', fontSize: 13 }}>Message Employer</Text>
+            <MessageSquare size={16} color="#60a5fa" />
+            <Text style={{ color: '#60a5fa', fontWeight: 'bold', fontSize: 13 }}>Message Employer</Text>
          </TouchableOpacity>
       </View>
     </View>

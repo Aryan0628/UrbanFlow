@@ -5,6 +5,7 @@ import { uploadImage as uploadToCloudinary } from '../services/uploadImage.js';
 import QuestionVote from '../models/urbanconnect/questionVoteModel.js';
 import Administration from '../models/urbanconnect/administrationModel.js';
 import { getRedisClient } from '../config/redis.js';
+import axios from 'axios';
 
 const getTimeAgo = (date) => {
   if (!date) return 'Just now';
@@ -52,7 +53,7 @@ export const fetchQuestions = async (req, res) => {
       .limit(limit)
       .lean();
 
-    // email already extracted above
+    // Get user's votes if authenticated
     let userId = null;
     if (email) {
       const dbUser = await User.findOne({ email });
@@ -66,14 +67,15 @@ export const fetchQuestions = async (req, res) => {
       voteMap = new Map(votes.map(v => [v.questionId.toString(), v.value]));
     }
 
-    const questionsWithCommentCount = await Promise.all(
+    // Enrich questions with author info, comment count, and user vote
+    const enrichedQuestions = await Promise.all(
       questions.map(async (q) => {
         const commentCount = await Comment.countDocuments({ questionId: q._id });
         return {
           ...q,
-          authorName: q.author?.username || q.author?.name || 'UrbanFlow User',
-          authorHandle: (q.author?.username || q.author?.name || 'resident').toLowerCase().replace(/\s+/g, ''),
-          authorAvatar: q.author?.avatar || q.author?.picture || '',
+          authorName: q.author?.username || 'UrbanFlow User',
+          authorHandle: (q.author?.username || 'resident').toLowerCase().replace(/\s+/g, ''),
+          authorAvatar: q.author?.avatar || '',
           timeAgo: getTimeAgo(q.createdAt),
           commentCount,
           userVote: voteMap.get(q._id.toString()) || 0,
@@ -101,11 +103,11 @@ export const fetchQuestions = async (req, res) => {
 
     const nextCursor = questions.length > 0 ? questions[questions.length - 1]._id : null;
 
-    res.status(200).json({
-      data: questions,
+    const responsePayload = {
+      data: enrichedQuestions,
       nextCursor,
       hasMore: questions.length === limit,
-    });
+    };
 
     // Store in cache for 60 seconds
     if (redisClient) {
@@ -125,20 +127,20 @@ export const fetchQuestionById = async (req, res) => {
       .populate('taggedAuthorities');
     if (!question) return res.status(404).json({ error: "Question not found" });
 
-    // Ensure the frontend receives the deeply loaded comments exactly as the mock expects
     const comments = await Comment.find({ questionId: question._id, parentId: null }).sort({ createdAt: -1 }).lean();
     
-    // Convert Mongoose doc to plain object and inject mock variables expected by frontend
+    const questionObj = question.toObject();
     const postData = {
-      ...question.toObject(),
-      authorName: question.authorName || 'UrbanFlow User',
-      authorHandle: 'resident', 
-      timeAgo: 'Just now', 
+      ...questionObj,
+      authorName: questionObj.author?.username || 'UrbanFlow User',
+      authorHandle: (questionObj.author?.username || 'resident').toLowerCase().replace(/\s+/g, ''),
+      authorAvatar: questionObj.author?.avatar || '',
+      timeAgo: getTimeAgo(questionObj.createdAt),
       comments: comments.map(c => ({
         ...c,
         id: c._id.toString(),
         authorName: c.authorName || 'User',
-        authorHandle: 'resident',
+        authorHandle: (c.authorName || 'user').toLowerCase().replace(/\s+/g, ''),
         text: c.body,
         timeAgo: '2h'
       }))
@@ -154,16 +156,32 @@ export const createQuestion = async (req, res) => {
   try {
     const { title, description, image, taggedAuthorities } = req.body;
 
-    // Simulate user extraction from auth middleware or body
+    // Extract user info from auth middleware or request body
     const email = req.body.author?.email || "mock@domain.com";
+    const authorName = req.body.author?.name || req.body.author?.nickname || "Anonymous";
+    const authorAvatar = req.body.author?.picture || null;
 
     let dbUser = await User.findOne({ email });
     if (!dbUser) {
       dbUser = await User.create({
-        username: req.body.author?.name || "Anonymous",
+        username: authorName,
         email: email,
-        auth0Id: req.body.author?.sub || 'mock_auth0_id_' + Date.now()
+        auth0Id: req.body.author?.sub || 'mock_auth0_id_' + Date.now(),
+        avatar: authorAvatar
       });
+    } else {
+      // Update username and avatar if they were previously generic or missing
+      const updates = {};
+      if (authorName && authorName !== 'Anonymous' && (!dbUser.username || dbUser.username.startsWith('Anonymous'))) {
+        updates.username = authorName;
+      }
+      if (authorAvatar && (!dbUser.avatar || dbUser.avatar === '')) {
+        updates.avatar = authorAvatar;
+      }
+      if (Object.keys(updates).length > 0) {
+        await User.findByIdAndUpdate(dbUser._id, updates);
+        dbUser = await User.findById(dbUser._id);
+      }
     }
 
     const newQuestion = await Question.create({
@@ -184,6 +202,55 @@ export const createQuestion = async (req, res) => {
     }
 
     res.status(201).json({ message: "Question uploaded to database", data: newQuestion });
+
+    // Fire-and-forget: AI Civic Analysis (sentiment, urgency, misinformation, clustering)
+    (async () => {
+      try {
+        const pyAgentUrl = process.env.PYTHON_SERVER;
+
+        // Extract city from tagged authorities if available, otherwise default to Prayagraj
+        let city = "Prayagraj";
+        if (taggedAuthorities?.length) {
+          const authority = await Administration.findById(taggedAuthorities[0]).lean();
+          if (authority?.city) city = authority.city;
+        }
+
+        const payload = {
+          postId: newQuestion._id.toString(),
+          title: title,
+          description: description,
+          imageUrls: image || [],
+          city: city
+        };
+        
+        console.log(`\n[AGENT DISPATCH] Sending Post ${newQuestion._id} to Python Agent for analysis...`);
+        console.log(`[AGENT DISPATCH] Payload Base: Title "${title}", City: "${city}"`);
+
+        const aiResponse = await axios.post(`${pyAgentUrl}/analyze-post`, payload);
+
+        const aiData = aiResponse.data;
+        console.log(`[AGENT RECEIVE] Received analysis for Post ${newQuestion._id}. Status: ${aiData.status}`);
+        if (aiData.status === "success") {
+          await Question.findByIdAndUpdate(newQuestion._id, {
+            aiAnalysis: {
+              sentiment: aiData.sentiment,
+              sentimentScore: aiData.sentiment_score,
+              urgency: aiData.urgency,
+              postType: aiData.post_type,
+              isMisinformation: aiData.is_misinformation ?? null,
+              contextNote: aiData.context_note ?? null,
+              clusterId: aiData.cluster_id ?? null,
+              analyzedAt: new Date()
+            },
+            embedding: aiData.embedding || null
+          });
+          console.log(`[CivicAnalysis] Post ${newQuestion._id} analyzed: ${aiData.post_type}, sentiment=${aiData.sentiment}`);
+        }
+      } catch (err) {
+        console.error(`[CivicAnalysis] Failed for post ${newQuestion._id}:`, err.message);
+      }
+    })();
+
   } catch (error) {
     res.status(500).json({ message: "Failed to create question", error: error.message });
   }
@@ -211,7 +278,7 @@ export const postComment = async (req, res) => {
     let dbUser = await User.findOne({ email });
     if (!dbUser) {
       dbUser = await User.create({
-        username: req.body.authorName || "Anonymous Replier",
+        username: req.body.authorName || email.split('@')[0],
         email: email,
         auth0Id: 'mock_auth0_id_cmt_' + Date.now()
       });
@@ -361,7 +428,7 @@ export const patchVote = async (req, res) => {
     let user = await User.findOne({ email });
     if (!user) {
       user = await User.create({
-        username: req.body.authorName || "Anonymous Voter",
+        username: req.body.authorName || email.split('@')[0],
         email: email,
         auth0Id: 'mock_auth0_id_vote_' + Date.now()
       });
@@ -413,7 +480,7 @@ export const patchQuestionVote = async (req, res) => {
     let user = await User.findOne({ email });
     if (!user) {
       user = await User.create({
-        username: req.body.authorName || "Anonymous Voter",
+        username: req.body.authorName || email.split('@')[0],
         email: email,
         auth0Id: 'mock_auth0_id_qvote_' + Date.now()
       });
@@ -452,6 +519,38 @@ export const patchQuestionVote = async (req, res) => {
     res.status(200).json({ message: "Question Vote Updated", userVote: value, updatedQuestion });
   } catch (err) {
     res.status(500).json({ error: "Failed to update question vote", details: err.message });
+  }
+};
+
+export const toggleSave = async (req, res) => {
+  try {
+    const { commentId } = req.body;
+    if (!commentId) return res.status(400).json({ error: "Missing commentId" });
+
+    const email = req.user?.email || req.body.email || "mock@domain.com";
+    let user = await User.findOne({ email });
+    if (!user) {
+      user = await User.create({
+        username: req.body.authorName || email.split('@')[0],
+        email: email,
+        auth0Id: 'mock_auth0_id_save_' + Date.now()
+      });
+    }
+
+    const existing = await Saved.findOne({ userId: user._id, commentId });
+
+    if (existing) {
+      await existing.deleteOne();
+      console.log(`[SAVE] Unsaved comment ${commentId} for user ${email}`);
+      return res.status(200).json({ saved: false, message: "Comment unsaved" });
+    } else {
+      await Saved.create({ userId: user._id, commentId });
+      console.log(`[SAVE] Saved comment ${commentId} for user ${email}`);
+      return res.status(201).json({ saved: true, message: "Comment saved" });
+    }
+  } catch (err) {
+    console.error('[SAVE] Error toggling save:', err.message);
+    res.status(500).json({ error: "Failed to toggle save", details: err.message });
   }
 };
 
@@ -549,10 +648,38 @@ export const fetchUserProfile = async (req, res) => {
       };
     }));
 
+    // Fetch user's saved comments with parent question context
+    const savedDocs = await Saved.find({ userId: dbUser._id }).sort({ createdAt: -1 }).lean();
+    const savedCommentIds = savedDocs.map(s => s.commentId);
+    console.log(`[PROFILE] Fetching saved comments for ${email}, found ${savedDocs.length} saved items`);
+
+    let savedComments = await Comment.find({ _id: { $in: savedCommentIds } }).lean();
+
+    // Enrich each saved comment with its parent question info
+    savedComments = await Promise.all(savedComments.map(async (c) => {
+      const parentQuestion = await Question.findById(c.questionId)
+        .populate('author', 'username avatar email')
+        .lean();
+      return {
+        ...c,
+        timeAgo: getTimeAgo(c.createdAt),
+        savedAt: savedDocs.find(s => s.commentId.toString() === c._id.toString())?.createdAt,
+        parentQuestion: parentQuestion ? {
+          _id: parentQuestion._id,
+          title: parentQuestion.title,
+          authorName: parentQuestion.author?.username || 'UrbanFlow User',
+          authorAvatar: parentQuestion.author?.avatar || '',
+        } : null
+      };
+    }));
+
+    console.log(`[PROFILE] Returning profile for ${email}: ${userPosts.length} posts, ${likedPosts.length} likes, ${savedComments.length} saved`);
+
     res.status(200).json({
       posts: userPosts,
       replies: userReplies,
-      likes: likedPosts
+      likes: likedPosts,
+      saved: savedComments
     });
   } catch (err) {
     res.status(500).json({ error: "Failed to fetch user profile", details: err.message });

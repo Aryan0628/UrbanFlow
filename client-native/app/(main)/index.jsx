@@ -15,6 +15,7 @@ import { useAuth0 } from 'react-native-auth0';
 import { ref, onValue, off, update, get } from 'firebase/database';
 import { db } from '../../lib/firebase';
 import { useAuthStore } from '../../store/useAuthStore';
+import { useNotificationStore } from '../../store/useNotificationStore';
 import { api } from '../../lib/api';
 import { router } from 'expo-router';
 import * as Location from 'expo-location';
@@ -22,8 +23,9 @@ import {
   Shield, Megaphone, Briefcase, Heart,
   LogOut, Bell, X, Flame, Siren,
   CheckCircle2, MapPin, Sun, Cloud,
-  CloudRain, Snowflake,
+  CloudRain, Snowflake, Users,
 } from 'lucide-react-native';
+import CommandBar from '../../components/features/CommandBar/CommandBar';
 
 // ─── Distance helper ──────────────────────────────────────────────
 const getDistanceInMeters = (lat1, lon1, lat2, lon2) => {
@@ -51,22 +53,22 @@ const FEATURES = [
   {
     id: 'reports',
     title: 'CivicConnect',
-    description: 'Submit grievances related to infrastructure, electricity, water, and waste management.',
+    description: 'AI-powered grievance reporting for infrastructure, electricity, water, and waste management.',
     route: '/(main)/(tabs)/CivicConnect',
     Icon: Megaphone,
   },
   {
     id: 'jobs',
     title: 'StreetGig',
-    description: 'Empower your livelihood by finding verified local job opportunities matched to your skills.',
+    description: 'AI matches verified local gig opportunities to your skills and location.',
     route: '/(main)/(tabs)/StreetGig',
     Icon: Briefcase,
   },
   {
     id: 'ngo',
     title: 'KindShare',
-    description: 'Bridge the gap between communities and NGOs for faster, more effective social impact.',
-    route: '/(main)/(tabs)/KindShare',
+    description: 'AI-driven bridge between communities and NGOs for faster, targeted social impact.',
+    route: '/kindshare',
     Icon: Heart,
   },
 ];
@@ -86,7 +88,6 @@ function NotificationBanner({ type, data, onAcknowledge, onConfirm }) {
   const isRed = type === 'arrival';
   const accent = isRed ? '#ef4444' : '#10b981';
   const accentDim = isRed ? 'rgba(239,68,68,0.15)' : 'rgba(16,185,129,0.15)';
-  const accentBorder = isRed ? 'rgba(239,68,68,0.4)' : 'rgba(16,185,129,0.4)';
 
   useEffect(() => {
     Animated.spring(slideAnim, {
@@ -109,8 +110,6 @@ function NotificationBanner({ type, data, onAcknowledge, onConfirm }) {
         borderRadius: 16,
         overflow: 'hidden',
         backgroundColor: 'rgba(10,10,20,0.97)',
-        borderWidth: 1,
-        borderColor: accentBorder,
         shadowColor: accent,
         shadowOffset: { width: 0, height: 0 },
         shadowOpacity: 0.5,
@@ -137,7 +136,7 @@ function NotificationBanner({ type, data, onAcknowledge, onConfirm }) {
       </View>
 
       <View style={{ flexDirection: 'row', alignItems: 'center', padding: 14, gap: 12 }}>
-        <View style={{ backgroundColor: accentDim, borderRadius: 12, borderWidth: 1, borderColor: accentBorder, padding: 10 }}>
+        <View style={{ backgroundColor: accentDim, borderRadius: 12, padding: 10 }}>
           {isRed ? <Siren size={22} color="#ef4444" /> : <CheckCircle2 size={22} color="#10b981" />}
         </View>
         <View style={{ flex: 1 }}>
@@ -180,8 +179,6 @@ function FeatureCard({ feature, onPress }) {
         style={{
           backgroundColor: 'rgba(255,255,255,0.03)',
           borderRadius: 20,
-          borderWidth: 1,
-          borderColor: 'rgba(255,255,255,0.08)',
           padding: 20,
           height: 200,
           justifyContent: 'center',
@@ -220,6 +217,43 @@ function FeatureCard({ feature, onPress }) {
 // ─── SOS Button ───────────────────────────────────────────────────
 function FireSOSButton({ userCoords, storedUser }) {
   const [loading, setLoading] = useState(false);
+  const [sosStatus, setSosStatus] = useState('idle'); // idle | sent
+  const [activeReport, setActiveReport] = useState(null);
+
+  const userId = storedUser?.sub || storedUser?.id;
+
+  // Listen to userActiveAlerts to detect active SOS
+  useEffect(() => {
+    if (!userId) return;
+    const userStatusRef = ref(db, `userActiveAlerts/${userId}`);
+
+    const unsub = onValue(userStatusRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.val();
+        if (data.status !== 'RESOLVED') {
+          setSosStatus('sent');
+          // Fetch the full report from fireAlerts
+          if (data.geohash && data.alertId) {
+            const reportRef = ref(db, `fireAlerts/${data.geohash}/${data.alertId}`);
+            onValue(reportRef, (reportSnap) => {
+              const rData = reportSnap.val();
+              if (rData) {
+                setActiveReport({ ...rData, id: data.alertId, geohash: data.geohash });
+              }
+            });
+          }
+        } else {
+          setSosStatus('idle');
+          setActiveReport(null);
+        }
+      } else {
+        setSosStatus('idle');
+        setActiveReport(null);
+      }
+    });
+
+    return () => unsub();
+  }, [userId]);
 
   const handleSOS = () => {
     Alert.alert('Fire SOS', 'Are you sure you want to send an emergency fire alert?', [
@@ -230,13 +264,41 @@ function FireSOSButton({ userCoords, storedUser }) {
         onPress: async () => {
           setLoading(true);
           try {
-            await api.post('/api/sos/fire', {
-              coords: userCoords,
-              userId: storedUser?.sub,
+            const ngeohash = require('ngeohash');
+            const lat = userCoords?.lat || 0;
+            const lng = userCoords?.lng || 0;
+            const geohash = ngeohash.encode(lat, lng, 6);
+
+            const { push, update: fbUpdate } = require('firebase/database');
+            const newAlertKey = push(ref(db, 'fireAlerts')).key;
+
+            const alertData = {
+              id: newAlertKey,
+              userId: userId,
+              userName: storedUser?.name,
               userEmail: storedUser?.email,
-            });
+              userProfileUrl: storedUser?.picture,
+              type: 'FIRE_SOS',
+              status: 'RAISED',
+              timestamp: Date.now(),
+              location: { lat, lng, address: 'GPS Coordinates' },
+              coords: { lat, lng },
+              user_action: 'SOS_BUTTON_PRESSED',
+            };
+
+            const updates = {};
+            updates[`fireAlerts/${geohash}/${newAlertKey}`] = alertData;
+            updates[`userActiveAlerts/${userId}`] = {
+              status: 'CRITICAL',
+              alertId: newAlertKey,
+              geohash: geohash,
+              timestamp: Date.now(),
+            };
+
+            await fbUpdate(ref(db), updates);
             Alert.alert('SOS Sent', 'Emergency services have been notified.');
           } catch (e) {
+            console.error('Fire SOS error:', e);
             Alert.alert('Error', 'Failed to send SOS. Please call emergency services directly.');
           } finally {
             setLoading(false);
@@ -246,9 +308,66 @@ function FireSOSButton({ userCoords, storedUser }) {
     ]);
   };
 
+  const handleTrackHelp = () => {
+    if (!activeReport) return;
+    router.push({
+      pathname: '/fire-staff/user-track',
+      params: {
+        assignedTo: activeReport.assignedTo || '',
+        assignedToName: activeReport.assignedToName || 'Rescue Unit',
+        geohash: activeReport.geohash || '',
+        userLat: String(activeReport.coords?.lat || activeReport.location?.lat || 0),
+        userLng: String(activeReport.coords?.lng || activeReport.location?.lng || 0),
+        userImage: activeReport.userProfileUrl || '',
+        address: activeReport.address || activeReport.location?.address || 'Your Location',
+      },
+    });
+  };
+
+  // SENT state: show TRACK HELP when COMMUTING, or "SOS Active" otherwise
+  if (sosStatus === 'sent') {
+    const isCommuting = activeReport?.status === 'COMMUTING';
+    return (
+      <TouchableOpacity
+        onPress={isCommuting ? handleTrackHelp : undefined}
+        disabled={!isCommuting}
+        style={{
+          backgroundColor: isCommuting ? 'rgba(16,185,129,0.15)' : 'rgba(100,116,139,0.12)',
+          borderRadius: 22,
+          borderWidth: 1,
+          borderColor: isCommuting ? 'rgba(16,185,129,0.35)' : 'rgba(100,116,139,0.25)',
+          paddingHorizontal: 14,
+          paddingVertical: 8,
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 6,
+        }}
+        activeOpacity={0.8}
+      >
+        {isCommuting ? (
+          <>
+            <CheckCircle2 size={14} color="#10b981" />
+            <Text style={{ color: '#10b981', fontWeight: '800', fontSize: 12, letterSpacing: 0.5 }}>
+              TRACK HELP
+            </Text>
+          </>
+        ) : (
+          <>
+            <Flame size={14} color="#64748b" />
+            <Text style={{ color: '#64748b', fontWeight: '800', fontSize: 12, letterSpacing: 0.5 }}>
+              SOS ACTIVE
+            </Text>
+          </>
+        )}
+      </TouchableOpacity>
+    );
+  }
+
+  // IDLE state: show SOS button
   return (
     <TouchableOpacity
       onPress={handleSOS}
+      disabled={loading}
       style={{
         backgroundColor: 'rgba(239,68,68,0.1)',
         borderRadius: 22,
@@ -272,14 +391,28 @@ function FireSOSButton({ userCoords, storedUser }) {
 
 // ─── Notification Panel ───────────────────────────────────────────
 function NotificationPanel({ visible, onClose }) {
-  const NOTIFICATION_ICONS = [Shield, Megaphone, Briefcase, Heart, Flame];
-  const MOCK_NOTIFICATIONS = [
-    { id: 1, iconIdx: 0, text: 'SisterHood alert resolved in your area.', time: '2m ago' },
-    { id: 2, iconIdx: 1, text: 'Your CivicConnect report was updated.', time: '15m ago' },
-    { id: 3, iconIdx: 2, text: 'New StreetGig job match in your area.', time: '1h ago' },
-    { id: 4, iconIdx: 3, text: 'KindShare donation drive nearby.', time: '3h ago' },
-    { id: 5, iconIdx: 4, text: 'Fire alert near Sector 4 resolved.', time: '5h ago' },
-  ];
+  const notifications = useNotificationStore((s) => s.notifications);
+  const markAsRead = useNotificationStore((s) => s.markAsRead);
+
+  const TYPE_ICONS = {
+    safety: Shield,
+    civic: Megaphone,
+    job: Briefcase,
+    ngo: Heart,
+    fire: Flame,
+    info: Bell,
+  };
+
+  const formatTimeAgo = (dateStr) => {
+    if (!dateStr) return '';
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diffSec = Math.floor((now - date) / 1000);
+    if (diffSec < 60) return 'Just now';
+    if (diffSec < 3600) return `${Math.floor(diffSec / 60)}m ago`;
+    if (diffSec < 86400) return `${Math.floor(diffSec / 3600)}h ago`;
+    return `${Math.floor(diffSec / 86400)}d ago`;
+  };
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
@@ -316,39 +449,52 @@ function NotificationPanel({ visible, onClose }) {
         </View>
 
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 20 }}>
-          {MOCK_NOTIFICATIONS.map((n) => {
-            const NIcon = NOTIFICATION_ICONS[n.iconIdx];
-            return (
-              <View
-                key={n.id}
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'flex-start',
-                  gap: 12,
-                  paddingVertical: 14,
-                  borderBottomWidth: 1,
-                  borderBottomColor: 'rgba(255,255,255,0.05)',
-                }}
-              >
-                <View
+          {notifications.length === 0 ? (
+            <View style={{ alignItems: 'center', paddingVertical: 40 }}>
+              <Bell size={32} color="#3f3f46" />
+              <Text style={{ color: '#52525b', marginTop: 12, fontSize: 14 }}>No notifications yet</Text>
+            </View>
+          ) : (
+            notifications.map((n) => {
+              const NIcon = TYPE_ICONS[n.type] || Bell;
+              return (
+                <TouchableOpacity
+                  key={n.id}
+                  onPress={() => { if (!n.isRead) markAsRead(n.id); }}
+                  activeOpacity={0.7}
                   style={{
-                    width: 40,
-                    height: 40,
-                    borderRadius: 12,
-                    backgroundColor: 'rgba(255,255,255,0.06)',
-                    justifyContent: 'center',
-                    alignItems: 'center',
+                    flexDirection: 'row',
+                    alignItems: 'flex-start',
+                    gap: 12,
+                    paddingVertical: 14,
+                    borderBottomWidth: 1,
+                    borderBottomColor: 'rgba(255,255,255,0.05)',
+                    opacity: n.isRead ? 0.5 : 1,
                   }}
                 >
-                  <NIcon size={18} color="#9ca3af" />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ color: '#e5e7eb', fontSize: 13, lineHeight: 19 }}>{n.text}</Text>
-                  <Text style={{ color: '#6b7280', fontSize: 11, marginTop: 3 }}>{n.time}</Text>
-                </View>
-              </View>
-            );
-          })}
+                  <View
+                    style={{
+                      width: 40,
+                      height: 40,
+                      borderRadius: 12,
+                      backgroundColor: n.isRead ? 'rgba(255,255,255,0.04)' : 'rgba(129,140,248,0.12)',
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                    }}
+                  >
+                    <NIcon size={18} color={n.isRead ? '#6b7280' : '#818cf8'} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: '#e5e7eb', fontSize: 13, lineHeight: 19 }}>{n.message}</Text>
+                    <Text style={{ color: '#6b7280', fontSize: 11, marginTop: 3 }}>{formatTimeAgo(n.createdAt)}</Text>
+                  </View>
+                  {!n.isRead && (
+                    <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#818cf8', marginTop: 6 }} />
+                  )}
+                </TouchableOpacity>
+              );
+            })
+          )}
         </ScrollView>
       </View>
     </Modal>
@@ -359,6 +505,7 @@ function NotificationPanel({ visible, onClose }) {
 export default function Dashboard() {
   const { logout } = useAuth0();
   const { user: storedUser } = useAuthStore();
+  const unreadCount = useNotificationStore((s) => s.unreadCount);
 
   const [weather, setWeather] = useState(null);
   const [userCoords, setUserCoords] = useState(null);
@@ -396,7 +543,7 @@ export default function Dashboard() {
         }
 
       } catch (e) {
-        console.error('Weather/Location error:', e);
+        console.warn('Weather/Location not available (expected on emulator):', e.message);
       }
     })();
   }, []);
@@ -552,22 +699,45 @@ export default function Dashboard() {
           paddingTop: Platform.OS === 'ios' ? 54 : 40,
           paddingHorizontal: 16,
           paddingBottom: 16,
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'space-between',
           backgroundColor: 'rgba(5,5,16,0.95)',
           borderBottomWidth: 1,
           borderBottomColor: 'rgba(255,255,255,0.06)',
+          gap: 12,
         }}
       >
-        <View style={{ flexShrink: 1, marginRight: 8 }}>
-          <Text style={{ color: '#fff', fontSize: 22, fontWeight: '900', letterSpacing: -0.5 }} numberOfLines={1}>
-            Urban<Text style={{ color: '#818cf8' }}>Flow</Text>
-          </Text>
+        {/* Top Row: Logo & Critical Actions */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <Image source={require('../../assets/images/logo.png')} style={{ width: 28, height: 28 }} resizeMode="contain" />
+            <Text style={{ color: '#fff', fontSize: 22, fontWeight: '900', letterSpacing: -0.5 }}>
+              Urban<Text style={{ color: '#818cf8', fontWeight: '900' }}>Flow</Text>
+            </Text>
+          </View>
+
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <FireSOSButton userCoords={userCoords} storedUser={storedUser} />
+
+            <TouchableOpacity
+              onPress={handleLogout}
+              style={{
+                backgroundColor: 'rgba(239,68,68,0.1)',
+                borderRadius: 22,
+                width: 38,
+                height: 38,
+                justifyContent: 'center',
+                alignItems: 'center',
+                borderWidth: 1,
+                borderColor: 'rgba(239,68,68,0.25)',
+              }}
+            >
+              <LogOut size={18} color="#f87171" />
+            </TouchableOpacity>
+          </View>
         </View>
 
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-          {weather && (
+        {/* Bottom Row: Info & Notifications */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          {weather ? (
             <View
               style={{
                 flexDirection: 'row',
@@ -586,9 +756,9 @@ export default function Dashboard() {
                 {Math.round(weather.temperature_2m)}°C
               </Text>
             </View>
+          ) : (
+            <View />
           )}
-
-          <FireSOSButton userCoords={userCoords} storedUser={storedUser} />
 
           <TouchableOpacity
             onPress={() => setIsNotificationOpen(true)}
@@ -604,22 +774,19 @@ export default function Dashboard() {
             }}
           >
             <Bell size={18} color="#d4d4d8" />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            onPress={handleLogout}
-            style={{
-              backgroundColor: 'rgba(239,68,68,0.1)',
-              borderRadius: 18,
-              width: 36,
-              height: 36,
-              justifyContent: 'center',
-              alignItems: 'center',
-              borderWidth: 1,
-              borderColor: 'rgba(239,68,68,0.25)',
-            }}
-          >
-            <LogOut size={18} color="#f87171" />
+            {unreadCount > 0 && (
+              <View style={{
+                position: 'absolute', top: -4, right: -4,
+                backgroundColor: '#ef4444', borderRadius: 10,
+                minWidth: 18, height: 18,
+                justifyContent: 'center', alignItems: 'center',
+                paddingHorizontal: 4,
+              }}>
+                <Text style={{ color: '#fff', fontSize: 10, fontWeight: '800' }}>
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </Text>
+              </View>
+            )}
           </TouchableOpacity>
         </View>
       </View>
@@ -650,14 +817,50 @@ export default function Dashboard() {
           </View>
         </View>
 
+        {/* --- URBANCONNECT TAB ENTRY --- */}
+        <TouchableOpacity
+          onPress={() => router.push('/(main)/(tabs)/urbanconnect')}
+          activeOpacity={0.8}
+          style={{
+            marginTop: 12,
+            backgroundColor: 'rgba(255,255,255,0.03)',
+            borderRadius: 16,
+            padding: 16,
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 16,
+          }}
+        >
+          <View
+            style={{
+              backgroundColor: 'rgba(255,255,255,0.05)',
+              borderRadius: 14,
+              borderWidth: 1,
+              borderColor: 'rgba(255,255,255,0.1)',
+              width: 48,
+              height: 48,
+              justifyContent: 'center',
+              alignItems: 'center',
+            }}
+          >
+            <Users size={24} color="#d4d4d8" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: '#fff', fontWeight: '700', fontSize: 18, marginBottom: 4, letterSpacing: -0.3 }}>
+              UrbanConnect
+            </Text>
+            <Text numberOfLines={2} style={{ color: '#a1a1aa', fontSize: 11, lineHeight: 16, fontWeight: '500' }}>
+              AI-moderated city-wide community to discuss, share, and connect with residents.
+            </Text>
+          </View>
+        </TouchableOpacity>
+
         {storedUser && (
           <View
             style={{
               marginTop: 24,
               backgroundColor: 'rgba(255,255,255,0.03)',
               borderRadius: 16,
-              borderWidth: 1,
-              borderColor: 'rgba(255,255,255,0.06)',
               padding: 16,
               flexDirection: 'row',
               alignItems: 'center',
@@ -688,6 +891,9 @@ export default function Dashboard() {
           </View>
         )}
       </ScrollView>
+
+      {/* ── AI Command Assistant ── */}
+      <CommandBar />
     </View>
   );
 }

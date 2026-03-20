@@ -5,15 +5,9 @@ import fs from "fs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
 /**
  * Executes the Python GEE deforestation script (Copernicus Sentinel-2).
- * @param {Object} regionGeoJson  
- * @param {string} regionId 
- * @param {string} credentialsPath 
- * @param {number} [threshold]  
- * @param {number} [buffermeters] - Radius in meters for Point geometries
- * @param {number} [previousDays] - Days to look back for the RECENT image (e.g. 10 days)
- * @returns {Promise<Object>} 
  */
 export function runDeforestationCheck(
   regionGeoJson,
@@ -24,6 +18,7 @@ export function runDeforestationCheck(
   previousDays
 ) {
   return new Promise((resolve, reject) => {
+
     const isWindows = process.platform === "win32";
     const pythonExecutable = isWindows
       ? path.join(process.cwd(), "venv", "Scripts", "python.exe")
@@ -38,11 +33,12 @@ export function runDeforestationCheck(
       );
     }
 
-    console.log(`Executing Python script: ${scriptPath}`);
-    // UPDATED LOG: More accurate description
+    console.log(`Using Python executable: ${pythonExecutable}`);
+    console.log(`Running script: ${scriptPath}`);
     console.log(`For region: ${regionId} | Buffer: ${buffermeters}m | Recent Lookback: ${previousDays}d`);
 
     const pythonProcess = spawn(pythonExecutable, [
+      "-u",                // 🔥 unbuffered output for real-time logs
       scriptPath,
       credentialsPath,
     ]);
@@ -67,15 +63,21 @@ export function runDeforestationCheck(
     const inputJsonString = JSON.stringify(inputData);
 
     let scriptOutput = "";
+    let scriptError = "";
+
+    // 🔥 Capture Python stderr
     let stderrOutput = "";
     
     pythonProcess.stderr.on("data", (data) => {
       const message = data.toString();
+      scriptError += message;
+      console.error("🐍 Python STDERR:", message);
       stderrOutput += message;
       console.error(`[Python Log]: ${message.trim()}`); 
       console.error("🐍 Python Error Output:", data.toString());
     });
 
+    // Capture Python stdout
     pythonProcess.stdout.on("data", (data) => {
       scriptOutput += data.toString();
     });
@@ -85,6 +87,7 @@ export function runDeforestationCheck(
       
       if (code === 0) {
         try {
+
           const trimmedOutput = scriptOutput.trim();
 
           if (!trimmedOutput) {
@@ -92,22 +95,33 @@ export function runDeforestationCheck(
           }
 
           const result = JSON.parse(trimmedOutput);
-          
+
           if (result.status === "error") {
             return reject(new Error(`GEE Script Error: ${result.message}`));
           }
 
           console.log("Successfully parsed Copernicus data.");
           resolve(result);
+
         } catch (parseError) {
+
           console.error("Failed to parse Python JSON output:", parseError);
-          console.error("Raw Python output:", scriptOutput); 
+          console.error("Raw Python output:", scriptOutput);
+
           reject(
             new Error(`Failed to parse JSON output: ${parseError.message}`)
           );
         }
+
       } else {
+
         console.error(`Python script failed with exit code ${code}`);
+        console.error("Full Python Error Output:");
+        console.error(scriptError);
+
+        reject(
+          new Error(`Python script failed with code ${code}. Error: ${scriptError}`)
+        );
         const details = scriptOutput.trim() || stderrOutput.trim() || "No output";
         reject(new Error(`Python script failed with code ${code}. Output: ${details}`));
       }
@@ -126,5 +140,6 @@ export function runDeforestationCheck(
       console.error("Error writing to Python stdin:", stdinError);
       reject(new Error(`Error writing to Python stdin: ${stdinError.message}`));
     }
+
   });
 }

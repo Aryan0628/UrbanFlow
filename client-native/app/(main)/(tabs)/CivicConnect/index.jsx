@@ -65,13 +65,13 @@ export default function ComplaintsPage() {
   if (!userLocation) {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: '#050510', justifyContent: 'center', alignItems: 'center', padding: 24 }}>
-        <View style={{ width: '100%', maxWidth: 400, backgroundColor: 'rgba(255,255,255,0.03)', padding: 32, borderRadius: 24, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', alignItems: 'center' }}>
-          <View style={{ height: 80, width: 80, borderRadius: 40, backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center', marginBottom: 24 }}>
+        <View style={{ width: '100%', maxWidth: 400, backgroundColor: 'rgba(255,255,255,0.03)', padding: 32, borderRadius: 24, alignItems: 'center' }}>
+          <View style={{ height: 80, width: 80, borderRadius: 40, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center', marginBottom: 24 }}>
             <MapPin size={40} color="#818cf8" />
           </View>
           <Text style={{ fontSize: 28, fontWeight: 'bold', color: '#fff', marginBottom: 24 }}>Enable Location</Text>
 
-          <View style={{ backgroundColor: 'rgba(255,255,255,0.03)', borderWidth: 1, borderColor: locationError ? 'rgba(239,68,68,0.2)' : 'rgba(255,255,255,0.08)', borderRadius: 16, padding: 16, flexDirection: 'row', gap: 12, marginBottom: 32, width: '100%' }}>
+          <View style={{ backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 16, padding: 16, flexDirection: 'row', gap: 12, marginBottom: 32, width: '100%' }}>
             <AlertCircle size={20} color={locationError ? "#ef4444" : "#818cf8"} style={{ marginTop: 2 }} />
             <View style={{ flex: 1 }}>
               <Text style={{ color: locationError ? "#ef4444" : '#fff', fontSize: 14, fontWeight: '600' }}>
@@ -124,10 +124,10 @@ export default function ComplaintsPage() {
             />
             
             {/* Map Toggle Button */}
-            <View className="p-4 border-t border-white/5 bg-[#050510]">
+            <View className="p-4 bg-[#050510]">
               <TouchableOpacity 
                 onPress={() => setViewMode("map")}
-                className="w-full bg-white/5 border border-white/10 p-4 rounded-xl flex-row justify-center items-center"
+                className="w-full bg-white/5 p-4 rounded-xl flex-row justify-center items-center"
               >
                 <Text className="text-zinc-300 font-bold mr-2">View Issue Heatmap</Text>
                 <ArrowRight size={16} color="#d4d4d8" />

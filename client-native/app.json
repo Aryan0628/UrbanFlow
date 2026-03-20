@@ -2,18 +2,18 @@
   "expo": {
     "name": "Urban Flow",
     "slug": "urban-flow",
-    "scheme": "urbanflow", // 1. CHANGED: Simplified from "com.anonymous.urbanflow"
+    "scheme": "urbanflow",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.anonymous.urbanflow",
       "config": {
         "googleMapsApiKey": "AIzaSyCDSlnYmEkg5tKSjmvPUdIH2xoVHnMxZ-o"
       }
+
     },
     "android": {
       "adaptiveIcon": {
@@ -35,8 +35,7 @@
         "googleMaps": {
           "apiKey": "AIzaSyCDSlnYmEkg5tKSjmvPUdIH2xoVHnMxZ-o"
         }
-      },
-      "edgeToEdgeEnabled": true
+      }
     },
     "web": {
       "output": "static",
@@ -80,10 +79,24 @@
         }
       ],
       [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "Allow Urban Flow to continuously listen for the SOS 'help' trigger words.",
+          "speechRecognitionPermission": "Allow Urban Flow to transcribe background audio offline to detect the SOS 'help' trigger words."
+        }
+      ],
+      [
         "expo-notifications",
         {
           "icon": "./assets/images/logo.png",
           "color": "#dc2626"
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow Urban Flow to access your photos to report issues with evidence.",
+          "cameraPermission": "Allow Urban Flow to access your camera to take photos of issues."
         }
       ]
     ]

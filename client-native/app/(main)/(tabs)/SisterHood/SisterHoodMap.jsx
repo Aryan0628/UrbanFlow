@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, ActivityIndicator, Image, TouchableOpacity, StyleSheet, Platform, Animated, AppState, DeviceEventEmitter } from 'react-native';
+import { View, Text, ActivityIndicator, Image, TouchableOpacity, StyleSheet, Platform, Animated, AppState, DeviceEventEmitter, PixelRatio } from 'react-native';
 import MapView, { PROVIDER_GOOGLE, AnimatedRegion, MarkerAnimated, Marker } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { Shield, AlertTriangle, ArrowLeft, Compass } from 'lucide-react-native';
@@ -21,6 +21,10 @@ import SOSBottomBar from './_components/SOSBottomBar';
 import { startBackgroundService, stopBackgroundService, persistTrackingState, requestBackgroundLocationPermissions, getPersistedState } from './_utils/backgroundService';
 import { setupNotificationCategory, setupNotificationResponseListener, showPersistentNotification, dismissPersistentNotification } from './_utils/notificationActions';
 import { startVolumeListener, stopVolumeListener } from './_utils/volumeTrigger';
+import { useSafetyScore } from './_utils/useSafetyScore';
+import { useTrustScore } from './_utils/useTrustScore';
+import { computeBlockSafetyImpact } from './_utils/trustScoreManager';
+import SOSResolutionModal from './_components/SOSResolutionModal';
 
 const DISTANCE_THRESHOLD = 15;
 export default function SisterHoodMap() {
@@ -32,6 +36,52 @@ export default function SisterHoodMap() {
     const [isRecording, setIsRecording] = useState(false);
     const [nearbyThreats, setNearbyThreats] = useState([]);
     const [markerLoaded, setMarkerLoaded] = useState(false);
+    const [currentGeo8, setCurrentGeo8] = useState(null);
+
+    // SOS Alert Banner state
+    const [focusedThreat, setFocusedThreat] = useState(null);
+    const [showSOSBanner, setShowSOSBanner] = useState(false);
+    const bannerSlideAnim = useRef(new Animated.Value(-120)).current; // starts off-screen above
+
+    // Safety Score logic
+    const { safetyScore, getScoreColor } = useSafetyScore(currentGeo8);
+
+    // Trust Score lifecycle
+    const { handleSOSResolution, handleSafeWalkExit, flushTrustScoreToServer } = useTrustScore();
+
+    // SOS Resolution Modal state
+    const [showResolutionModal, setShowResolutionModal] = useState(false);
+
+    // Session ref: did the user trigger SOS at any point this session?
+    const sosWasTriggeredRef = useRef(false);
+
+    // React to nearby threats — show / hide the alert banner
+    useEffect(() => {
+        if (nearbyThreats.length > 0) {
+            const closest = nearbyThreats.reduce((a, b) => a.distance < b.distance ? a : b);
+            setFocusedThreat(closest);
+            // Only animate in if not already showing
+            if (!showSOSBanner) {
+                setShowSOSBanner(true);
+                Animated.spring(bannerSlideAnim, {
+                    toValue: 0,
+                    useNativeDriver: true,
+                    tension: 65,
+                    friction: 10,
+                }).start();
+            }
+        } else {
+            // Slide out and clear
+            Animated.timing(bannerSlideAnim, {
+                toValue: -120,
+                duration: 300,
+                useNativeDriver: true,
+            }).start(() => {
+                setShowSOSBanner(false);
+                setFocusedThreat(null);
+            });
+        }
+    }, [nearbyThreats]);
 
     // Hardware Accelerated Compass FOV indicator
     const { headingAnim } = useCompass(100, 2);
@@ -74,6 +124,15 @@ export default function SisterHoodMap() {
         blocksRef,
         lastGeo6Ref,
         sosActive,
+        onBeforeExit: async () => {
+            if (!sosWasTriggeredRef.current) {
+                // Safe walk exit — increment streak, maybe award bonus
+                await handleSafeWalkExit();
+            } else {
+                // SOS was triggered — flush the final trust state to Firestore
+                await flushTrustScoreToServer();
+            }
+        },
         onExit: async () => {
             console.log("⏹️ Stopping services from in-app exit.");
             await stopBackgroundService();
@@ -216,7 +275,7 @@ export default function SisterHoodMap() {
         };
     }, []);
 
-    // AppState listener: foreground ↔ background transitions
+    // AppState listener: foreground ↔️ background transitions
     useEffect(() => {
         const handleAppStateChange = async (nextAppState) => {
             if (!user || isTransitioningRef.current) return;
@@ -301,7 +360,16 @@ export default function SisterHoodMap() {
                     current_geohash_6: currentGeohash6,
                     current_geohash_8: currentGeohash8,
                     sos_triggered: sosActive,
+                    safe_walk_streak: user.safe_walk_streak,
+                    false_sos_count: user.false_sos_count,
+                    trust_score: user.trust_score,
+                    is_verified: user.is_verified,
                 }).catch(e => console.error("Error updating users geo footprint", e));
+            }
+
+            // Update local state for safety score hook
+            if (currentGeohash8 && currentGeohash8 !== currentGeo8) {
+                setCurrentGeo8(currentGeohash8);
             }
 
             // B. STATIONARY TO MOVING HANDOFF
@@ -379,16 +447,29 @@ export default function SisterHoodMap() {
 
             // D. SOS STATE TRACKING EDGE CASES
             if (sosActive) {
-                // Case 1 & 2: Geo8 Block Changes (Increment sos_count for new block)
+                // Case 1 & 2: User stepped into a NEW geo8 block while SOS is active
+                // Apply Reverse Gaussian impact to the new block using trust score
                 if (currentGeohash8 !== lastGeo8Ref.current) {
+                    const userTrustScore = user.trust_score ?? 5.0;
                     const blockRef = ref(db, `blocks/${currentGeohash8}`);
                     runTransaction(blockRef, (currentBlock) => {
-                        // Only safely increment if the block actually exists
                         if (currentBlock && currentBlock.block_state) {
+                            const metrics = currentBlock.block_state.safety_metrics || {};
+                            const { newWeightedImpact, newCurrentScore } = computeBlockSafetyImpact(
+                                metrics.weighted_sos_impact || 0,
+                                userTrustScore,
+                                metrics.last_updated || null
+                            );
                             currentBlock.block_state.sos_count = (currentBlock.block_state.sos_count || 0) + 1;
+                            currentBlock.block_state.safety_metrics = {
+                                ...metrics,
+                                weighted_sos_impact: newWeightedImpact,
+                                current_score: newCurrentScore,
+                                last_updated: Date.now(),
+                            };
                         }
                         return currentBlock;
-                    }).catch(e => console.error("Failed to increment SOS count for block", e));
+                    }).catch(e => console.error("Failed to apply block safety impact on move", e));
                 }
 
                 // Case 3: Geo6 Broadcasting Updates (Update active_sos)
@@ -430,24 +511,42 @@ export default function SisterHoodMap() {
             });
         }
     };
+    // 4. SOS STATE TRACKING EFFECT: Handle turn-on (boost block) and turn-off (show modal)
     useEffect(() => {
         if (!user || !lastGeo6Ref.current) return;
 
         if (sosActive) {
-            // 1. Immediately update user document
+            // ── SOS ACTIVATED ──
+            sosWasTriggeredRef.current = true;
+
+            // 1. Update user doc in RTDB
             update(ref(db, `users/${user.id}`), {
                 sos_triggered: true
             }).catch(e => console.error("Failed to set user sos true", e));
 
-            // 2. Immediately increment the current block's SOS count
+            // 2. Apply Reverse Gaussian block safety impact using trust score
             if (lastGeo8Ref.current) {
+                const userTrustScore = user.trust_score ?? 5.0;
                 const blockRef = ref(db, `blocks/${lastGeo8Ref.current}`);
+
                 runTransaction(blockRef, (currentBlock) => {
                     if (currentBlock && currentBlock.block_state) {
+                        const metrics = currentBlock.block_state.safety_metrics || {};
+                        const { newWeightedImpact, newCurrentScore } = computeBlockSafetyImpact(
+                            metrics.weighted_sos_impact || 0,
+                            userTrustScore,
+                            metrics.last_updated || null
+                        );
                         currentBlock.block_state.sos_count = (currentBlock.block_state.sos_count || 0) + 1;
+                        currentBlock.block_state.safety_metrics = {
+                            ...metrics,
+                            weighted_sos_impact: newWeightedImpact,
+                            current_score: newCurrentScore,
+                            last_updated: Date.now(),
+                        };
                     }
                     return currentBlock;
-                }).catch(e => console.error("Failed to increment SOS count for block immediately", e));
+                }).catch(e => console.error("Failed to apply block safety impact", e));
             }
 
             // 3. Immediately broadcast to nearby threats channel
@@ -460,17 +559,21 @@ export default function SisterHoodMap() {
                 }).catch(e => console.error("Failed to start SOS broadcast", e));
             }
         } else {
-            // 1. IMMEDIATELY erase our broadcast if SOS turns OFF
+            // ── SOS DEACTIVATED ──
+            // 1. Erase broadcast
             remove(ref(db, `active_sos/${lastGeo6Ref.current}/${user.id}`))
                 .catch(e => console.error("Failed to clean up SOS broadcast", e));
 
-            // 2. Immediately update user document to clear sos
+            // 2. Update user doc
             update(ref(db, `users/${user.id}`), {
                 sos_triggered: false
             }).catch(e => console.error("Failed to set user sos false", e));
+
+            // 3. Show the resolution modal (only if SOS was actually triggered in this session)
+            if (sosWasTriggeredRef.current) {
+                setShowResolutionModal(true);
+            }
         }
-        // Note: We DO NOT decrement the geo8 block's sos_count. 
-        // Threat metrics are historical and leave a permanent heatmap footprint.
 
         // Sync with background task
         persistTrackingState({
@@ -530,15 +633,15 @@ export default function SisterHoodMap() {
     // RENDER STATES
     if (!currentLocation) {
         return (
-            <View className="flex-1 bg-[#09090b] items-center justify-center">
+            <View style={styles.loadingContainer}>
                 <ActivityIndicator size="large" color="#ffffff" />
-                <Text className="text-zinc-400 mt-4 font-medium tracking-tight">Establishing Identity Shield...</Text>
+                <Text style={styles.loadingText}>Establishing Identity Shield...</Text>
             </View>
         );
     }
 
     return (
-        <View className="flex-1 bg-black">
+        <View style={styles.mainContainer}>
             <MapView
                 ref={mapRef}
                 provider={PROVIDER_GOOGLE}
@@ -612,15 +715,16 @@ export default function SisterHoodMap() {
                         key={threat.id}
                         coordinate={{ latitude: threat.lat, longitude: threat.lng }}
                         anchor={{ x: 0.5, y: 0.5 }}
+                        tracksViewChanges={true}
                     >
-                        <View style={{ width: 60, height: 60, alignItems: 'center', justifyContent: 'center' }}>
+                        <View style={styles.sosMarkerContainer}>
                             {/* Blinking Red Ring Effect representing an active SOS user */}
-                            <View style={{ width: 60, height: 60, borderRadius: 30, backgroundColor: 'rgba(239, 68, 68, 0.2)', alignItems: 'center', justifyContent: 'center' }} className="animate-pulse">
+                            <View style={styles.sosMarkerRing}>
                                 {/* The solid red inner dot with white border */}
-                                <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: '#ef4444', borderColor: '#ffffff', borderWidth: 2, elevation: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 3.84 }} />
+                                <View style={styles.sosMarkerDot} />
                             </View>
-                            <View className="absolute bg-red-600 rounded-md px-2 py-0.5 -bottom-2 border border-red-400 shadow-xl">
-                                <Text className="text-[9px] text-white font-bold tracking-widest uppercase">SOS</Text>
+                            <View style={styles.sosMarkerLabel}>
+                                <Text style={styles.sosMarkerLabelText}>SOS</Text>
                             </View>
                         </View>
                     </Marker>
@@ -628,34 +732,141 @@ export default function SisterHoodMap() {
 
             </MapView>
 
+            {/* SOS ALERT BANNER — slides in from top when nearby SOS detected */}
+            {showSOSBanner && focusedThreat && (
+                <Animated.View
+                    style={[
+                        {
+                            position: 'absolute',
+                            top: 130, // below the upper HUD row
+                            left: 16,
+                            right: 16,
+                            zIndex: 100,
+                            transform: [{ translateY: bannerSlideAnim }],
+                        }
+                    ]}
+                >
+                    <TouchableOpacity
+                        activeOpacity={0.85}
+                        onPress={() => {
+                            if (mapRef.current && focusedThreat) {
+                                mapRef.current.animateCamera({
+                                    center: { latitude: focusedThreat.lat, longitude: focusedThreat.lng },
+                                    zoom: 18,
+                                    pitch: 45,
+                                }, { duration: 900 });
+                            }
+                        }}
+                        style={{
+                            backgroundColor: 'rgba(127, 29, 29, 0.92)',
+                            borderWidth: 1,
+                            borderColor: 'rgba(239, 68, 68, 0.6)',
+                            borderRadius: 16,
+                            paddingHorizontal: 16,
+                            paddingVertical: 12,
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            shadowColor: '#ef4444',
+                            shadowOffset: { width: 0, height: 4 },
+                            shadowOpacity: 0.4,
+                            shadowRadius: 12,
+                            elevation: 12,
+                        }}
+                    >
+                        {/* Pulsing red dot */}
+                        <View style={{
+                            width: 36, height: 36, borderRadius: 18,
+                            backgroundColor: 'rgba(239,68,68,0.25)',
+                            alignItems: 'center', justifyContent: 'center',
+                            marginRight: 12,
+                        }}>
+                            <View style={{
+                                width: 14, height: 14, borderRadius: 7,
+                                backgroundColor: '#ef4444',
+                                borderWidth: 2, borderColor: '#fff',
+                            }} />
+                        </View>
+
+                        {/* Text block */}
+                        <View style={{ flex: 1 }}>
+                            <Text style={{ color: '#fca5a5', fontSize: 11, fontWeight: '700', letterSpacing: 1.5, textTransform: 'uppercase' }}>
+                                SOS Alert Nearby
+                            </Text>
+                            <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '800', marginTop: 2 }}>
+                                {focusedThreat.distance < 1000
+                                    ? `~${focusedThreat.distance}m away`
+                                    : `~${(focusedThreat.distance / 1000).toFixed(1)}km away`
+                                }
+                            </Text>
+                            <Text style={{ color: '#fca5a599', fontSize: 11, marginTop: 1 }}>Tap to locate on map</Text>
+                        </View>
+
+                        {/* Dismiss X */}
+                        <TouchableOpacity
+                            onPress={() => {
+                                Animated.timing(bannerSlideAnim, {
+                                    toValue: -120,
+                                    duration: 250,
+                                    useNativeDriver: true,
+                                }).start(() => setShowSOSBanner(false));
+                            }}
+                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                            style={{
+                                width: 28, height: 28, borderRadius: 14,
+                                backgroundColor: 'rgba(255,255,255,0.1)',
+                                alignItems: 'center', justifyContent: 'center',
+                                marginLeft: 8,
+                            }}
+                        >
+                            <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '800', lineHeight: 16 }}>✕</Text>
+                        </TouchableOpacity>
+                    </TouchableOpacity>
+                </Animated.View>
+            )}
+
             {/* UPPER HUD */}
-            <View className="absolute top-16 left-4 right-4 flex flex-row items-center justify-between z-50 pointer-events-box-none px-1">
+            <View style={styles.upperHud}>
 
                 {/* Back Button */}
                 <TouchableOpacity
                     onPress={handleBackPress}
                     activeOpacity={0.8}
-                    className="bg-zinc-900/95 border border-zinc-800 h-12 w-12 rounded-full items-center justify-center shadow-2xl pointer-events-auto"
+                    style={styles.backButton}
                 >
                     <ArrowLeft size={22} color="#ffffff" />
                 </TouchableOpacity>
 
                 {/* Status Indicator (Sleek Pill) */}
-                <View className="bg-zinc-900/95 border border-zinc-800 rounded-full px-4 py-2 flex-row items-center shadow-2xl pointer-events-auto mx-3 flex-1 justify-center max-w-[220px]">
-                    <Shield size={16} color={trackingMode === 'MOVING' ? '#3b82f6' : '#22c55e'} className="mr-2" />
-                    <Text className="text-white font-bold text-sm tracking-wide">
+                <View style={styles.statusPill}>
+                    <Shield size={16} color={trackingMode === 'MOVING' ? '#3b82f6' : '#22c55e'} style={{ marginRight: 8 }} />
+                    <Text style={styles.statusText}>
                         {trackingMode === 'STATIONARY' ? 'Securing Perimeter' : 'Shield Active'}
                     </Text>
                 </View>
 
+                {/* Safety Score Component */}
+                <View 
+                    style={[styles.safetyScorePill, { borderColor: `${getScoreColor(safetyScore)}44`, backgroundColor: `${getScoreColor(safetyScore)}11` }]}
+                >
+                    <View 
+                        style={[styles.safetyDot, { backgroundColor: getScoreColor(safetyScore) }]}
+                    />
+                    <View>
+                        <Text style={styles.safetyLabel}>Safety</Text>
+                        <Text style={[styles.safetyValue, { color: getScoreColor(safetyScore) }]}>
+                            {safetyScore.toFixed(1)}
+                        </Text>
+                    </View>
+                </View>
+
                 {/* Threat Banner / Invisible Spacer */}
                 {nearbyThreats.length > 0 ? (
-                    <View className="bg-red-950/90 border border-red-500/50 rounded-full px-3 py-2 flex-row items-center shadow-xl pointer-events-auto">
-                        <AlertTriangle size={16} color="#ef4444" className="mr-1.5" />
-                        <Text className="text-red-400 text-xs font-bold tracking-wider">{nearbyThreats.length}</Text>
+                    <View style={styles.threatBadge}>
+                        <AlertTriangle size={16} color="#ef4444" style={{ marginRight: 6 }} />
+                        <Text style={styles.threatBadgeText}>{nearbyThreats.length}</Text>
                     </View>
                 ) : (
-                    <View className="w-12 h-12" /> /* Spacer to keep center alignment */
+                    <View style={styles.spacer} />
                 )}
             </View>
 
@@ -672,7 +883,7 @@ export default function SisterHoodMap() {
                         }, { duration: 1000 });
                     }
                 }}
-                className="absolute bottom-40 right-4 bg-zinc-900/90 border border-zinc-700/50 w-12 h-12 rounded-full items-center justify-center shadow-xl z-50 pointer-events-auto"
+                style={styles.compassButton}
             >
                 <Compass size={24} color="#3b82f6" />
             </TouchableOpacity>
@@ -685,8 +896,211 @@ export default function SisterHoodMap() {
                 isRecordingExternal={isRecording}
                 onToggleRecordingExternal={setIsRecording}
             />
+
+            {/* SOS RESOLUTION MODAL */}
+            <SOSResolutionModal
+                visible={showResolutionModal}
+                onOutcome={async (outcome) => {
+                    setShowResolutionModal(false);
+                    await handleSOSResolution(outcome);
+                    await flushTrustScoreToServer();
+                }}
+            />
         </View>
     );
 }
 
-const styles = StyleSheet.create({});
+const styles = StyleSheet.create({
+    loadingContainer: {
+        flex: 1,
+        backgroundColor: '#09090b',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    loadingText: {
+        color: '#a1a1aa',
+        marginTop: 16,
+        fontWeight: '500',
+    },
+    mainContainer: {
+        flex: 1,
+        backgroundColor: '#000000',
+    },
+    upperHud: {
+        position: 'absolute',
+        top: 64,
+        left: 16,
+        right: 16,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        zIndex: 50,
+        paddingHorizontal: 4,
+    },
+    backButton: {
+        backgroundColor: 'rgba(24, 24, 27, 0.95)',
+        borderWidth: 1,
+        borderColor: '#27272a',
+        height: 48,
+        width: 48,
+        borderRadius: 24,
+        alignItems: 'center',
+        justifyContent: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 10,
+    },
+    statusPill: {
+        backgroundColor: 'rgba(24, 24, 27, 0.95)',
+        borderWidth: 1,
+        borderColor: '#27272a',
+        borderRadius: 9999,
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        flexDirection: 'row',
+        alignItems: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 10,
+        marginHorizontal: 12,
+        flex: 1,
+        justifyContent: 'center',
+        maxWidth: 220,
+    },
+    statusText: {
+        color: '#ffffff',
+        fontWeight: '700',
+        fontSize: 14,
+        letterSpacing: 0.5,
+    },
+    safetyScorePill: {
+        borderWidth: 1,
+        borderRadius: 9999,
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        flexDirection: 'row',
+        alignItems: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
+        elevation: 6,
+        marginHorizontal: 4,
+    },
+    safetyDot: {
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+        marginRight: 8,
+    },
+    safetyLabel: {
+        color: '#a1a1aa',
+        fontSize: 8,
+        fontWeight: '700',
+        textTransform: 'uppercase',
+        letterSpacing: 1.5,
+    },
+    safetyValue: {
+        fontSize: 14,
+        fontWeight: '900',
+        letterSpacing: -0.5,
+    },
+    threatBadge: {
+        backgroundColor: 'rgba(69, 10, 10, 0.9)',
+        borderWidth: 1,
+        borderColor: 'rgba(239, 68, 68, 0.5)',
+        borderRadius: 9999,
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        flexDirection: 'row',
+        alignItems: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
+        elevation: 6,
+    },
+    threatBadgeText: {
+        color: '#f87171',
+        fontSize: 12,
+        fontWeight: '700',
+        letterSpacing: 1,
+    },
+    spacer: {
+        width: 48,
+        height: 48,
+    },
+    compassButton: {
+        position: 'absolute',
+        bottom: 160,
+        right: 16,
+        backgroundColor: 'rgba(24, 24, 27, 0.9)',
+        borderWidth: 1,
+        borderColor: 'rgba(63, 63, 70, 0.5)',
+        width: 48,
+        height: 48,
+        borderRadius: 24,
+        alignItems: 'center',
+        justifyContent: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
+        elevation: 6,
+        zIndex: 50,
+    },
+    // SOS Ghost Marker styles — scaled for Android bitmap rendering
+    sosMarkerContainer: {
+        width: Platform.OS === 'android' ? 60 * PixelRatio.get() : 60,
+        height: Platform.OS === 'android' ? 60 * PixelRatio.get() : 60,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    sosMarkerRing: {
+        width: Platform.OS === 'android' ? 60 * PixelRatio.get() : 60,
+        height: Platform.OS === 'android' ? 60 * PixelRatio.get() : 60,
+        borderRadius: Platform.OS === 'android' ? 30 * PixelRatio.get() : 30,
+        backgroundColor: 'rgba(239, 68, 68, 0.2)',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    sosMarkerDot: {
+        width: Platform.OS === 'android' ? 22 * PixelRatio.get() : 22,
+        height: Platform.OS === 'android' ? 22 * PixelRatio.get() : 22,
+        borderRadius: Platform.OS === 'android' ? 11 * PixelRatio.get() : 11,
+        backgroundColor: '#ef4444',
+        borderColor: '#ffffff',
+        borderWidth: Platform.OS === 'android' ? 2 * PixelRatio.get() : 2,
+        elevation: 4,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.25,
+        shadowRadius: 3.84,
+    },
+    sosMarkerLabel: {
+        position: 'absolute',
+        backgroundColor: '#dc2626',
+        borderRadius: Platform.OS === 'android' ? 6 * PixelRatio.get() : 6,
+        paddingHorizontal: Platform.OS === 'android' ? 8 * PixelRatio.get() : 8,
+        paddingVertical: Platform.OS === 'android' ? 2 * PixelRatio.get() : 2,
+        bottom: Platform.OS === 'android' ? -8 * PixelRatio.get() : -8,
+        borderWidth: 1,
+        borderColor: '#f87171',
+        elevation: 12,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.25,
+        shadowRadius: 4,
+    },
+    sosMarkerLabelText: {
+        fontSize: Platform.OS === 'android' ? 9 * PixelRatio.get() : 9,
+        color: '#ffffff',
+        fontWeight: 'bold',
+        letterSpacing: 1,
+        textTransform: 'uppercase',
+    },
+});

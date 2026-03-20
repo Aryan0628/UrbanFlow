@@ -135,10 +135,10 @@ export default function StreetGigIndex() {
   };
 
   useEffect(() => {
-    if (userLocation) {
+    if (userLocation && !isLoadingProfile) {
       loadJobs();
     }
-  }, [userLocation, userProfile?.interestedToWork, timeFilter, minPriceFilter]);
+  }, [userLocation, isLoadingProfile, userProfile?.interestedToWork, timeFilter, minPriceFilter]);
   useEffect(() => {
     if (user?.sub) {
       fetchMyJobs();
@@ -305,7 +305,7 @@ export default function StreetGigIndex() {
 
       {/* HEADER */}
       <View style={{ paddingTop: Platform.OS === 'ios' ? 60 : 40, paddingBottom: 16, paddingHorizontal: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: 'rgba(5,5,16,0.95)', borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)', zIndex: 50 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 }}>
           <TouchableOpacity onPress={() => router.back()} style={{ height: 40, width: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' }}>
             <ArrowLeft size={20} color="#a1a1aa" />
           </TouchableOpacity>
@@ -318,10 +318,10 @@ export default function StreetGigIndex() {
           {userProfile?.interestedToWork && (
             <TouchableOpacity
               onPress={() => setShowLearningSchemes(true)}
-              style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, backgroundColor: 'rgba(234,179,8,0.2)', borderWidth: 1, borderColor: 'rgba(234,179,8,0.3)', flexDirection: 'row', alignItems: 'center', gap: 6 }}
+              style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.15)', flexDirection: 'row', alignItems: 'center', gap: 6 }}
             >
-              <GraduationCap size={14} color="#facc15" />
-              <Text style={{ color: '#facc15', fontSize: 12, fontWeight: 'bold' }}>Schemes</Text>
+              <GraduationCap size={14} color="#fff" />
+              <Text style={{ color: '#fff', fontSize: 12, fontWeight: 'bold' }}>Schemes</Text>
             </TouchableOpacity>
           )}
           <TouchableOpacity
@@ -356,7 +356,7 @@ export default function StreetGigIndex() {
           <View style={{ flex: 1, padding: 20 }}>
             <View style={{ marginBottom: 20 }}>
               <Text style={{ fontSize: 24, fontWeight: 'bold', color: '#fff', marginBottom: 4 }}>StreetGig</Text>
-              <Text style={{ fontSize: 14, color: '#a1a1aa' }}>Find verified local job opportunities.</Text>
+              <Text style={{ fontSize: 14, color: '#a1a1aa' }}>AI-matched verified local job opportunities.</Text>
             </View>
 
             <View style={{ flexDirection: 'row', gap: 8, marginBottom: 20, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)', paddingBottom: 16 }}>
@@ -391,25 +391,25 @@ export default function StreetGigIndex() {
                       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingBottom: 12 }}>
                         {/* Time Filters */}
                         <TouchableOpacity
-                          style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, backgroundColor: timeFilter === '' ? 'rgba(8,145,178,0.2)' : 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: timeFilter === '' ? '#0891b2' : 'rgba(255,255,255,0.1)' }}
+                          style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, backgroundColor: timeFilter === '' ? 'rgba(59,130,246,0.2)' : 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: timeFilter === '' ? 'rgba(59,130,246,0.3)' : 'rgba(255,255,255,0.1)' }}
                           onPress={() => setTimeFilter('')}
                         >
-                          <Text style={{ color: timeFilter === '' ? '#22d3ee' : '#a1a1aa', fontSize: 12, fontWeight: 'bold' }}>Any Time</Text>
+                          <Text style={{ color: timeFilter === '' ? '#60a5fa' : '#a1a1aa', fontSize: 12, fontWeight: 'bold' }}>Any Time</Text>
                         </TouchableOpacity>
                         {TIME_SLOTS.map(slot => (
                           <TouchableOpacity
                             key={slot}
-                            style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, backgroundColor: timeFilter === slot ? 'rgba(8,145,178,0.2)' : 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: timeFilter === slot ? '#0891b2' : 'rgba(255,255,255,0.1)' }}
+                            style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, backgroundColor: timeFilter === slot ? 'rgba(59,130,246,0.2)' : 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: timeFilter === slot ? 'rgba(59,130,246,0.3)' : 'rgba(255,255,255,0.1)' }}
                             onPress={() => setTimeFilter(slot)}
                           >
-                            <Clock size={12} color={timeFilter === slot ? '#22d3ee' : '#71717a'} />
-                            <Text style={{ color: timeFilter === slot ? '#22d3ee' : '#a1a1aa', fontSize: 12, fontWeight: 'bold' }}>{slot}</Text>
+                            <Clock size={12} color={timeFilter === slot ? '#60a5fa' : '#71717a'} />
+                            <Text style={{ color: timeFilter === slot ? '#60a5fa' : '#a1a1aa', fontSize: 12, fontWeight: 'bold' }}>{slot}</Text>
                           </TouchableOpacity>
                         ))}
                       </ScrollView>
 
                       <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', paddingHorizontal: 12, paddingVertical: 8, marginTop: 4 }}>
-                        <Text style={{ color: '#4ade80', fontSize: 14, fontWeight: 'bold', marginRight: 4 }}>₹</Text>
+                        <Text style={{ color: '#a1a1aa', fontSize: 14, fontWeight: 'bold', marginRight: 4 }}>₹</Text>
                         <TextInput
                           style={{ flex: 1, color: '#fff', fontSize: 14, fontWeight: '600' }}
                           placeholder="Min budget (e.g. 500)"
@@ -469,10 +469,10 @@ export default function StreetGigIndex() {
             <TouchableOpacity onPress={() => setMobileTab('list')}
               style={{
                 flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 20, paddingVertical: 12, borderRadius: 24,
-                backgroundColor: mobileTab === 'list' ? 'rgba(168,85,247,0.2)' : 'transparent',
-                borderWidth: 1, borderColor: mobileTab === 'list' ? 'rgba(168,85,247,0.3)' : 'transparent',
+                backgroundColor: mobileTab === 'list' ? 'rgba(255,255,255,0.1)' : 'transparent',
+                borderWidth: 1, borderColor: mobileTab === 'list' ? 'rgba(255,255,255,0.15)' : 'transparent',
               }}>
-              <List size={16} color={mobileTab === 'list' ? '#e9d5ff' : '#a1a1aa'} />
+              <List size={16} color={mobileTab === 'list' ? '#fff' : '#a1a1aa'} />
             </TouchableOpacity>
 
 
@@ -480,10 +480,10 @@ export default function StreetGigIndex() {
             <TouchableOpacity onPress={() => setMobileTab('chat')}
               style={{
                 flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 20, paddingVertical: 12, borderRadius: 24,
-                backgroundColor: mobileTab === 'chat' ? 'rgba(59,130,246,0.2)' : 'transparent',
-                borderWidth: 1, borderColor: mobileTab === 'chat' ? 'rgba(59,130,246,0.3)' : 'transparent',
+                backgroundColor: mobileTab === 'chat' ? 'rgba(255,255,255,0.1)' : 'transparent',
+                borderWidth: 1, borderColor: mobileTab === 'chat' ? 'rgba(255,255,255,0.15)' : 'transparent',
               }}>
-              <MessageSquare size={16} color={mobileTab === 'chat' ? '#dbeafe' : '#a1a1aa'} />
+              <MessageSquare size={16} color={mobileTab === 'chat' ? '#fff' : '#a1a1aa'} />
             </TouchableOpacity>
           </View>
         </View>

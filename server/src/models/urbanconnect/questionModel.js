@@ -9,6 +9,19 @@ const questionSchema = new mongoose.Schema({
   taggedAuthorities: [{ type: mongoose.Schema.Types.ObjectId, ref: "Administration" }],
   isAnswered: { type: Boolean, default: false },
   votes: { type: Number, default: 0 },
+
+  // AI Analysis Fields (populated by fire-and-forget agent)
+  aiAnalysis: {
+    sentiment: { type: String, enum: ['POSITIVE', 'NEUTRAL', 'NEGATIVE', 'ALARMING'], default: null },
+    sentimentScore: { type: Number, default: null },
+    urgency: { type: String, enum: ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'], default: null },
+    postType: { type: String, enum: ['CIVIC_REPORT', 'POLICY_RUMOR', 'GENERAL'], default: null },
+    isMisinformation: { type: Boolean, default: null },
+    contextNote: { type: String, default: null },
+    clusterId: { type: String, default: null },
+    analyzedAt: { type: Date, default: null },
+  },
+  embedding: { type: [Number], default: null },
 }
 ,{ timestamps: true }
 );
