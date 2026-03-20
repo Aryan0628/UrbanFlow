@@ -1,5 +1,5 @@
 import express from "express";
-import { db, FieldValue } from "../firebaseadmin/firebaseadmin.js";
+import { db, FieldValue } from "../firebaseadmin/firebaseAdmin.js";
 import axios from "axios";
 import { checkJwt } from "../auth/authMiddleware.js";
 import ngeohash from "ngeohash";
