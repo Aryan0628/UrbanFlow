@@ -1,7 +1,7 @@
 import os
 from jose import jwt
 import requests
-from typing import List, Dict, Optional,Any
+from typing import List, Dict, Optional, Any
 from fastapi import FastAPI, HTTPException, Header, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
@@ -17,8 +17,17 @@ from brain.voice_analysis_agent import voice_analysis_app
 
 # [CHANGE 1: Renamed 'app' to 'report_agent' to avoid conflict with FastAPI app]
 from brain.orchestrator import app as report_agent 
-from brain.job_agent import app as job_agent_workflow
+from brain.streetgig.job_agent import app as job_agent_workflow
 from state import ReportStatus # Importing enums is good practice
+
+# --- GRAPH RAG IMPORTS ---
+from brain.streetgig.skill_graph_agent import extract_skills, upsert_skill_nodes
+from brain.streetgig.graph_retrieval_agent import get_candidate_pool
+from brain.streetgig.graph_scorer import compute_final_score, reputation_score
+from brain.streetgig.graph_writebacks import write_job_completion, write_safety_flag
+from brain.streetgig.trajectory_agent import get_skill_trajectory, apply_trajectory_boost
+from brain.streetgig.context_reranker import contextual_rerank
+from motor.motor_asyncio import AsyncIOMotorClient
 
 
 from brain.urbanconnect.scrapper.orchestrator import fetch_and_analyze_city_pulse_graph
@@ -28,6 +37,30 @@ app = FastAPI()
 AUTH0_DOMAIN = os.getenv("AUTH0_DOMAIN")  # e.g. dev-xyz.us.auth0.com
 AUTH0_AUDIENCE = os.getenv("AUTH0_AUDIENCE")
 ALGORITHMS = ["RS256"]
+
+# --- MONGODB CONNECTION ---
+MONGO_URI = os.getenv("MONGODB_URI", "")
+MONGO_DB_NAME = os.getenv("MONGO_DB_NAME", "uncluttered")
+mongo_client = None
+mongo_db = None
+
+@app.on_event("startup")
+async def startup_db():
+    global mongo_client, mongo_db
+    if MONGO_URI:
+        import certifi
+        mongo_client = AsyncIOMotorClient(MONGO_URI, tlsCAFile=certifi.where())
+        mongo_db = mongo_client[MONGO_DB_NAME]
+        print(f"✅ Connected to MongoDB: {MONGO_DB_NAME}")
+    else:
+        print("⚠️ MONGODB_URI not set — graph endpoints will not work")
+
+@app.on_event("shutdown")
+async def shutdown_db():
+    global mongo_client
+    if mongo_client:
+        mongo_client.close()
+
 # --- CORS MIDDLEWARE ---
 app.add_middleware(
     CORSMiddleware,
@@ -105,6 +138,33 @@ class PulseRequest(BaseModel):
     posts: List[Dict[str, Any]]
     previous_data: Optional[Dict[str, Any]] = None
 
+# --- GRAPH RAG REQUEST SCHEMAS ---
+class GraphMatchRequest(BaseModel):
+    job_id: str
+    job_description: str
+    job_skill_ids: List[str]
+    employer_id: str
+    lat: float
+    lng: float
+    radius_km: float = 10.0
+
+class GraphWritebackRequest(BaseModel):
+    worker_id: str
+    employer_id: str
+    job_id: str
+    skill_ids: List[str]
+    rating: float
+
+class SafetyFlagRequest(BaseModel):
+    worker_id: str
+    employer_id: str
+    severity: str
+    job_id: str
+
+class ExtractSkillsRequest(BaseModel):
+    worker_id: str
+    text: str
+
 def fetch_user_profile(access_token: str):
     url = f"https://{AUTH0_DOMAIN}/userinfo"
     headers = {
@@ -179,7 +239,8 @@ async def process_job(req: JobProcessRequest):
             "status": "success",
             "enriched_description": final_state.get("enriched_description"),
             "job_embedding": final_state.get("job_embedding"),
-            "feedback_form": [q for q in final_state.get("feedback_form", [])]
+            "feedback_form": [q for q in final_state.get("feedback_form", [])],
+            "extracted_skills": final_state.get("extracted_skills").dict() if final_state.get("extracted_skills") else None
         }
     except Exception as e:
         print(f"Error in Process Job Endpoint: {e}")
@@ -386,7 +447,7 @@ class SkillGapRequest(BaseModel):
 @app.post("/process-skill-gap")
 async def process_skill_gap(req: SkillGapRequest):
     try:
-        from brain.skill_gap_agent import workflow as skill_gap_workflow
+        from brain.streetgig.skill_gap_agent import workflow as skill_gap_workflow
         
         initial_state = {
             "questions": req.questions,
@@ -521,3 +582,118 @@ if __name__ == "__main__":
     import uvicorn
     port = int(os.environ.get("PORT", 8000))
     uvicorn.run(app, host="0.0.0.0", port=port)
+
+
+# --- GRAPH RAG ENDPOINTS ---
+
+@app.post('/graph-match')
+async def graph_match(req: GraphMatchRequest):
+    '''Full pipeline: graph retrieval → scoring → trajectory → re-rank'''
+    if not mongo_db:
+        raise HTTPException(status_code=503, detail="MongoDB not connected")
+    try:
+        # Step 1: Graph retrieval
+        candidates = await get_candidate_pool(
+            req.job_skill_ids, req.employer_id,
+            req.lat, req.lng, req.radius_km, mongo_db
+        )
+
+        if not candidates:
+            return {'status': 'success', 'candidates': []}
+
+        # Fetch safety flags for all candidate workers
+        candidate_ids = [c['worker_id'] for c in candidates]
+        safety_flags = await mongo_db.graph_edges.find({
+            'from_id': {'$in': candidate_ids},
+            'relationship': 'trust_flag'
+        }).to_list(length=200)
+
+        # Get average skill node rating for cold-start fallback
+        skill_nodes = await mongo_db.skill_nodes.find(
+            {'skill_id': {'$in': req.job_skill_ids}}
+        ).to_list(length=50)
+        avg_skill_rating = sum(n.get('avg_rating', 3.0) for n in skill_nodes) / max(len(skill_nodes), 1)
+
+        # Step 2: Score each candidate
+        for c in candidates:
+            rep = reputation_score(c['worker_id'], candidates, avg_skill_rating)
+            base_score = compute_final_score(
+                vector_sim=c.get('graph_score', 0.5),
+                graph_score=c.get('graph_score', 0),
+                rep_score=rep,
+                last_active=c.get('last_active'),
+                worker_id=c['worker_id'],
+                safety_flags=safety_flags,
+            )
+            # Get trajectory for primary matched skill
+            primary_skill = c['matched_skills'][0] if c.get('matched_skills') else None
+            if primary_skill:
+                trajectory = await get_skill_trajectory(c['worker_id'], primary_skill, mongo_db)
+            else:
+                trajectory = {'ewa_score': 0, 'raw_avg': 0, 'trend': 'insufficient_data'}
+
+            c['final_score'] = apply_trajectory_boost(
+                base_score, trajectory['trend'], trajectory['ewa_score'], trajectory['raw_avg']
+            )
+            c['trend']     = trajectory['trend']
+            c['ewa_score'] = trajectory['ewa_score']
+
+        # Step 3: Sort and contextual re-rank
+        candidates.sort(key=lambda x: x['final_score'], reverse=True)
+        ranked = await contextual_rerank(req.job_description, req.job_skill_ids, candidates)
+
+        return {'status': 'success', 'candidates': [r.dict() for r in ranked]}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post('/graph-writeback')
+async def graph_writeback(req: GraphWritebackRequest):
+    '''Call on every job close. Keeps the graph current.'''
+    if not mongo_db:
+        raise HTTPException(status_code=503, detail="MongoDB not connected")
+    try:
+        await write_job_completion(
+            req.worker_id, req.employer_id, req.job_id,
+            req.skill_ids, req.rating, mongo_db
+        )
+        return {'status': 'success'}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post('/graph-safety-flag')
+async def graph_safety_flag_endpoint(req: SafetyFlagRequest):
+    '''Write a safety trust_flag edge. Called by safety_agent when severity >= HIGH.'''
+    if not mongo_db:
+        raise HTTPException(status_code=503, detail="MongoDB not connected")
+    try:
+        await write_safety_flag(
+            req.worker_id, req.employer_id, req.severity, req.job_id, mongo_db
+        )
+        return {'status': 'success'}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post('/graph-extract-skills')
+async def extract_worker_skills(req: ExtractSkillsRequest):
+    '''Extract skills from worker profile text and write has_skill edges.'''
+    if not mongo_db:
+        raise HTTPException(status_code=503, detail="MongoDB not connected")
+    try:
+        result = await extract_skills(req.text)
+        skill_ids = await upsert_skill_nodes(result.skills, mongo_db.skill_nodes)
+        # Write has_skill edges for each extracted skill
+        from datetime import datetime, timezone
+        now = datetime.now(timezone.utc)
+        for skill_id in skill_ids:
+            await mongo_db.graph_edges.update_one(
+                {'from_id': req.worker_id, 'to_id': skill_id, 'relationship': 'has_skill'},
+                {'$set': {'from_type': 'worker', 'to_type': 'skill', 'weight': 0, 'updated_at': now},
+                 '$setOnInsert': {'created_at': now}},
+                upsert=True
+            )
+        return {'status': 'success', 'skill_ids': skill_ids}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
