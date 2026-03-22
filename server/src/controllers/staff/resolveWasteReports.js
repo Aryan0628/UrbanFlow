@@ -3,6 +3,7 @@ import admin from 'firebase-admin';
 import axios from 'axios';
 import { sendEmail } from "../../utils/sendEmail.js";
 import {pushNotificationToUser} from "../../utils/pushNotification.js"
+import { syncReportStatus } from "../../services/syncReportStatus.js";
 
 export const resolveWasteReports = async (req, res) => {
     const { 
@@ -101,6 +102,7 @@ export const resolveWasteReports = async (req, res) => {
         });
 
         await batch.commit();
+        syncReportStatus(reportId, 'RESOLVED');
 
         // 5. Send Emails (Non-blocking / Side Effect)
         try {

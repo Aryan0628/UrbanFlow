@@ -82,6 +82,65 @@ export default function PostCard({ post }) {
           </TouchableOpacity>
         </View>
 
+        {/* --- CIVIC REPORT SYSTEM BADGE & STATUS PILL --- */}
+        {post?.isCivicReport && (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 }}>
+            {/* System Badge */}
+            <View style={{
+              backgroundColor: 'rgba(56, 189, 248, 0.15)',
+              borderWidth: 1,
+              borderColor: 'rgba(56, 189, 248, 0.3)',
+              paddingHorizontal: 6,
+              paddingVertical: 2,
+              borderRadius: 4
+            }}>
+              <Text style={{ color: '#38bdf8', fontSize: 10, fontWeight: '800', letterSpacing: 0.5 }}>
+                CIVIC SYSTEM
+              </Text>
+            </View>
+
+            {/* LIVE Status Pill */}
+            <View style={{
+              backgroundColor: 
+                post.reportStatus === 'RESOLVED' ? 'rgba(34, 197, 94, 0.15)' :
+                post.reportStatus === 'USERVERIFICATION' ? 'rgba(168, 85, 247, 0.15)' :
+                post.reportStatus === 'ASSIGNED' ? 'rgba(234, 179, 8, 0.15)' :
+                'rgba(113, 113, 122, 0.15)',
+              borderWidth: 1,
+              borderColor: 
+                post.reportStatus === 'RESOLVED' ? 'rgba(34, 197, 94, 0.3)' :
+                post.reportStatus === 'USERVERIFICATION' ? 'rgba(168, 85, 247, 0.3)' :
+                post.reportStatus === 'ASSIGNED' ? 'rgba(234, 179, 8, 0.3)' :
+                'rgba(113, 113, 122, 0.3)',
+              paddingHorizontal: 8,
+              paddingVertical: 2,
+              borderRadius: 12,
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 4
+            }}>
+              <View style={{
+                width: 6, height: 6, borderRadius: 3,
+                backgroundColor: 
+                  post.reportStatus === 'RESOLVED' ? '#22c55e' :
+                  post.reportStatus === 'USERVERIFICATION' ? '#a855f7' :
+                  post.reportStatus === 'ASSIGNED' ? '#eab308' :
+                  '#71717a'
+              }} />
+              <Text style={{ 
+                color: 
+                  post.reportStatus === 'RESOLVED' ? '#22c55e' :
+                  post.reportStatus === 'USERVERIFICATION' ? '#a855f7' :
+                  post.reportStatus === 'ASSIGNED' ? '#eab308' :
+                  '#a1a1aa',
+                fontSize: 10, fontWeight: '700', letterSpacing: 0.5 
+              }}>
+                {post.reportStatus === 'USERVERIFICATION' ? 'IN REVIEW' : post.reportStatus || 'PENDING'}
+              </Text>
+            </View>
+          </View>
+        )}
+
         {/* Post Title */}
         {post?.title && (
           <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700', marginTop: 4, lineHeight: 22 }}>

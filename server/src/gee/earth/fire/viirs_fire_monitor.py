@@ -119,6 +119,23 @@ def detect_active_fires(region_geometry, days_back):
                 .multiply(0.02)
             end_url = get_image_url(curr_lst, region_geometry, vis_safe)
 
+        # --- TILE URL FOR INTERACTIVE MAP ---
+        try:
+            if pixel_count > 0:
+                map_id = fire_clean.getMapId({
+                    'min': 330, 'max': 400,
+                    'palette': ['500000', 'ff0000', 'ff8000', 'ffff00', 'ffffff']
+                })
+            else:
+                map_id = curr_lst.getMapId({
+                    'min': 280, 'max': 325,
+                    'palette': ['000000', '000040', '0000ff', '0080ff', '00ffff', 'ffffff']
+                })
+            tile_url = map_id['tile_fetcher'].url_format
+        except Exception as e:
+            print(f"WARNING: getMapId failed: {e}", file=sys.stderr)
+            tile_url = None
+
         fires_list = []
         if pixel_count > 0:
             vectors = fire_clean.addBands(temp_max).reduceToVectors(
@@ -155,6 +172,7 @@ def detect_active_fires(region_geometry, days_back):
             "fires": fires_list,
             "start_image_url": start_url,
             "end_image_url": end_url,
+            "tile_url": tile_url,
             "dates": date_info,
         }
 
@@ -163,6 +181,7 @@ def detect_active_fires(region_geometry, days_back):
             "status": "error",
             "message": str(e),
             "alert_triggered": False,
+            "tile_url": None,
             "dates": date_info
         }
 

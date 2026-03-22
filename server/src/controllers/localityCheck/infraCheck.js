@@ -1,88 +1,102 @@
 import { db } from '../../firebaseadmin/firebaseadmin.js';
-import ngeohash from 'ngeohash'; // You likely need this package
+import ngeohash from 'ngeohash';
 
-function getDistanceInMeters(lat1, lon1, lat2, lon2) {
-  const R = 6371e3;
-  const φ1 = lat1 * Math.PI / 180;
-  const φ2 = lat2 * Math.PI / 180;
-  const Δφ = (lat2 - lat1) * Math.PI / 180;
-  const Δλ = (lon2 - lon1) * Math.PI / 180;
+const RADIUS_M          = 25;
 
-  const a = Math.sin(Δφ / 2) ** 2 +
-            Math.cos(φ1) * Math.cos(φ2) *
-            Math.sin(Δλ / 2) ** 2;
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
+function distanceMeters(lat1, lon1, lat2, lon2) {
+  const R  = 6371e3;
+  const φ1 = (lat1 * Math.PI) / 180;
+  const φ2 = (lat2 * Math.PI) / 180;
+  const Δφ = ((lat2 - lat1) * Math.PI) / 180;
+  const Δλ = ((lon2 - lon1) * Math.PI) / 180;
+  const a  =
+    Math.sin(Δφ / 2) ** 2 +
+    Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+async function scanHash(hash, userLat, userLng, submitterId) {
+  const candidates = [];
+
+  let userDocRefs;
+  try {
+    userDocRefs = await db
+      .collection('infrastructureReports')
+      .doc(hash)
+      .collection('reports')
+      .listDocuments();
+  } catch {
+    return candidates;
+  }
+
+  if (!userDocRefs.length) return candidates;
+
+  await Promise.all(
+    userDocRefs.map(async (userDocRef) => {
+      const userId = userDocRef.id;
+
+      let snapshot;
+      try {
+        snapshot = await userDocRef
+          .collection('userReports')
+          .where('status', '!=', 'RESOLVED')
+          .get();
+      } catch {
+        return;
+      }
+
+      snapshot.forEach((doc) => {
+        const d    = doc.data();
+        const rLat = d.location?.lat;
+        const rLng = d.location?.lng;
+        if (!rLat || !rLng) return;
+        console.log("submitterid",submitterId);
+        console.log("userid",userId);
+        const dist = distanceMeters(userLat, userLng, rLat, rLng);
+        if (dist <= RADIUS_M) {
+          candidates.push({
+            imageUrl:       d.imageUrl ?? null,
+            userId,
+            reportId:       doc.id,
+            locality_email: d.email    ?? null,
+            distance:       dist,
+            isSelfDuplicate: userId === submitterId,
+          });
+        }
+      });
+    })
+  );
+
+  return candidates;
 }
 
 export const infraCheck = async (req, res) => {
   try {
-    const { location, geohash } = req.body;
+    const { location, geohash, userId } = req.body;
 
     if (!location?.lat || !location?.lng || !geohash) {
-      return res.status(400).json({ message: "Invalid location or geohash data" });
+      return res.status(400).json({ message: 'Invalid location or geohash data' });
     }
 
-    // 1. Get center hash + 8 neighbors
-    const neighbors = ngeohash.neighbors(geohash);
-    const geohashesToCheck = [geohash, ...neighbors];
 
-    let closestReport = null;
-    let minDistance = Infinity;
+    const { lat, lng } = location;
+    const hashes = [geohash, ...ngeohash.neighbors(geohash)];
 
-    // 2. Parallel execution for speed
-    await Promise.all(geohashesToCheck.map(async (hash) => {
-      const reportsCollectionRef = db
-        .collection("infrastructureReports")
-        .doc(hash)
-        .collection("reports");
+    const results = await Promise.all(hashes.map((h) => scanHash(h, lat, lng, userId)));
+    console.log(results,"results")
+    const all     = results.flat();
 
-      // Use listDocuments to handle virtual docs
-      const userDocRefs = await reportsCollectionRef.listDocuments();
-      if (userDocRefs.length === 0) return;
-
-      for (const userDocRef of userDocRefs) {
-        const userId = userDocRef.id;
-        const reportsSnapshot = await userDocRef.collection("userReports").get();
-
-        reportsSnapshot.forEach(reportDoc => {
-          const reportData = reportDoc.data();
-          if (reportData.status === "RESOLVED") {
-            return; 
-          }
-
-          if (reportData.location?.lat && reportData.location?.lng) {
-            const distance = getDistanceInMeters(
-              location.lat,
-              location.lng,
-              reportData.location.lat,
-              reportData.location.lng
-            );
-
-            if (distance <= 6 && distance < minDistance) {
-              minDistance = distance;
-              closestReport = {
-                imageUrl: reportData.imageUrl,
-                userId: userId,
-                reportId: reportDoc.id,
-                locality_email: reportData.email,
-                distance: distance
-              };
-            }
-          }
-        });
-      }
-    }));
-
-    if (closestReport) {
-      console.log(`[Infra] Duplicate found. Distance: ${closestReport.distance}m`);
-      return res.status(200).json({ duplicateFound: true, data: closestReport });
+    if (!all.length) {
+      return res.status(200).json({ duplicateFound: false });
     }
 
-    return res.status(200).json({ duplicateFound: false });
+    const closest = all.reduce((best, cur) => (cur.distance < best.distance ? cur : best));
+
+    console.log(`[Infra] Duplicate found ${closest.distance.toFixed(1)}m away — reportId: ${closest.reportId}`);
+    return res.status(200).json({ duplicateFound: true, data: closest });
 
   } catch (error) {
-    console.error("Error in infraCheck:", error);
-    return res.status(500).json({ message: "Internal Server Error", error: error.message });
+    console.error('[infraCheck] error:', error);
+    return res.status(500).json({ message: 'Internal Server Error', error: error.message });
   }
 };

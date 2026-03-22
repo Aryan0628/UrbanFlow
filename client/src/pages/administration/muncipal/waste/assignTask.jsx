@@ -148,55 +148,9 @@ export default function AssignTask() {
     performAssignment(selectedStaff, "manual");
   };
 
-  // --- 4. AUTO-ASSIGNMENT TIMER LOGIC ---
-  useEffect(() => {
-    // Stop if:
-    // 1. We turned off auto-assign (user selected someone manually)
-    // 2. We are currently submitting
-    if (!isAutoAssigning || submitting) return;
-
-    if (autoCheckCount > 0) {
-      // Tick down every second
-      const timer = setTimeout(() => setAutoCheckCount(prev => prev - 1), 1000);
-      return () => clearTimeout(timer);
-    } else {
-      // TIMER HIT 0: EXECUTE ASSIGNMENT
-      console.log("Timer finished! Calculating nearest staff...");
-
-      if (staffList.length > 0 && formData.lat && formData.lng) {
-          
-          let closestStaff = null;
-          let minDistance = Infinity;
-
-          staffList.forEach((staff) => {
-              if (staff.coords && staff.coords.lat && staff.coords.lng) {
-                  const dist = getDistance(
-                      formData.lat, 
-                      formData.lng, 
-                      staff.coords.lat, 
-                      staff.coords.lng
-                  );
-                  if (dist < minDistance) {
-                      minDistance = dist;
-                      closestStaff = staff;
-                  }
-              }
-          });
-
-          if (closestStaff) {
-              console.log(`Auto-assigning to ${closestStaff.name}`);
-              performAssignment(closestStaff, "auto");
-          } else {
-              console.warn("No staff with valid coords found.");
-              setToast({ message: "Auto-assign failed: No staff GPS found.", type: "error" });
-              setIsAutoAssigning(false); // Stop trying
-          }
-      } else {
-        console.warn("Requirements not met for auto-assign.");
-      }
-    }
-  }, [autoCheckCount, isAutoAssigning, submitting, staffList, formData, performAssignment]);
-
+  // --- 4. AUTO-ASSIGNMENT LOGIC (Removed) ---
+  // Client-side auto-assignment timer has been removed.
+  // The server-side autoDispatchCron.js now reliably handles stranded reports.
 
   // --- RENDER ---
   return (
@@ -231,15 +185,15 @@ export default function AssignTask() {
             </div>
           </div>
 
-          {/* VISUAL TIMER & STATUS */}
+          {/* SERVER AUTO-ASSIGN BADGE */}
           <div className="flex items-center gap-3 bg-white px-4 py-2 rounded-full border border-slate-200 shadow-sm">
             <div className="relative">
-                <Zap className={`w-5 h-5 ${isAutoAssigning ? 'text-amber-500 animate-pulse' : 'text-slate-300'}`} />
+                <Zap className="w-5 h-5 text-emerald-500" />
             </div>
             <div className="text-xs text-right">
                 <p className="font-bold text-slate-700">Auto-Assign</p>
-                <p className={`font-mono ${autoCheckCount < 10 ? 'text-rose-600 font-black' : 'text-slate-400'}`}>
-                   {isAutoAssigning ? `00:${autoCheckCount.toString().padStart(2, '0')}` : 'PAUSED'}
+                <p className="font-mono text-emerald-600 font-black">
+                   SERVER MANAGED
                 </p>
             </div>
           </div>

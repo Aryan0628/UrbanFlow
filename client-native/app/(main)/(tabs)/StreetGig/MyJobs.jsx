@@ -159,6 +159,21 @@ export default function MyJobs({ jobs, onSelect, onUpdate }) {
                               <Text style={{ color: '#52525b', fontSize: 12 }}>•</Text>
                               <Text style={{ color: '#a1a1aa', fontSize: 12 }}>{w.completedJobs || 0} completed jobs</Text>
                             </View>
+                            {w.match_reason && (
+                              <View style={{
+                                marginTop: 6,
+                                paddingHorizontal: 8,
+                                paddingVertical: 4,
+                                backgroundColor: 'rgba(59,130,246,0.08)',
+                                borderRadius: 6,
+                                borderLeftWidth: 2,
+                                borderLeftColor: 'rgba(59,130,246,0.4)',
+                              }}>
+                                <Text style={{ color: '#93c5fd', fontSize: 11, lineHeight: 16 }}>
+                                  {w.match_reason}
+                                </Text>
+                              </View>
+                            )}
                          </View>
                        </TouchableOpacity>
                        <View style={{ flexDirection: 'row', gap: 8 }}>

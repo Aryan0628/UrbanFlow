@@ -73,6 +73,9 @@ async def rag_fact_check(state: CivicAnalysisState):
                     # Search depth changed to advanced for better context scraping
                     search_result = tavily_client.search(query=query, search_depth="advanced", max_results=3)
                     
+                    results_count = len(search_result.get("results", []))
+                    print(f"  ├─> [WEB SEARCH] Tavily returned {results_count} results.")
+                    
                     web_context_parts = []
                     for i, res in enumerate(search_result.get("results", []), 1):
                         web_context_parts.append(

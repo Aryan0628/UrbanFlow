@@ -1,4 +1,4 @@
-import { db } from "../../firebaseadmin/firebaseadmin.js"; 
+import { db } from "../../firebaseadmin/firebaseAdmin.js"; 
 
 export const fetch3Reports = async (req, res) => {
     try {

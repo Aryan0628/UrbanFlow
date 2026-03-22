@@ -3,6 +3,12 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Flame, ShieldCheck, Calendar, Thermometer, TriangleAlert, CheckCircle, Globe } from 'lucide-react';
 import { useAuth0 } from '@auth0/auth0-react'; 
 import { api } from '../../../lib/api.js';
+import { MapContainer, TileLayer } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
+import { useRegionCenter } from '../../../hooks/useRegionCenter';
+import MapAutoCenter from '../../../components/gee/MapAutoCenter';
+import IntelligenceReportCard from '../../../components/gee/IntelligenceReportCard';
+import CompositeFindingsBanner from '../../../components/gee/CompositeFindingsBanner';
 
 export default function FireResult() {
   const location = useLocation();
@@ -11,7 +17,8 @@ export default function FireResult() {
   const [alertset, setAlertset] = useState(false);
   const { data } = location.state || {};
   const result = data?.result;
-  const reportRef = result?.reportref; 
+  const reportRef = result?.reportref;
+  const { center, zoom, bounds } = useRegionCenter(result?.regionGeoJson || data?.regionGeoJson);
   console.log("result",result)
 
   const handleAlert = async () => {
@@ -195,16 +202,35 @@ export default function FireResult() {
              <ThermalLegend />
            </div>
 
-           {/* IMAGE 2: Active Scan */}
+           {/* IMAGE 2: Interactive Tile Map */}
            <div className="space-y-3">
              <h3 className="font-bold text-slate-700 flex items-center gap-2 text-sm md:text-base">
-               <Flame className="w-4 h-4 text-orange-500" /> Active Thermal Scan
+               <Flame className="w-4 h-4 text-orange-500" /> Live Thermal Map
              </h3>
-             <div className="aspect-square bg-slate-900 rounded-2xl overflow-hidden border border-slate-800 shadow-inner relative group flex items-center justify-center">
-                {result.end_image_url ? (
-                  <img src={result.end_image_url} alt="After" className="w-full h-full object-contain p-2" />
+             <div className="aspect-square rounded-2xl overflow-hidden border border-slate-800 shadow-inner relative"
+                  style={{ minHeight: '300px' }}>
+                {result.tile_url ? (
+                  <MapContainer
+                    center={center}
+                    zoom={zoom}
+                    style={{ width: '100%', height: '100%' }}
+                    zoomControl={true}
+                    scrollWheelZoom={false}
+                  >
+                    <MapAutoCenter bounds={bounds} />
+                   <TileLayer
+                      url="https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}"
+                      attribution="&copy; Google Maps"
+                      maxZoom={20}
+                    />
+                    <TileLayer
+                      url={result.tile_url}
+                      opacity={0.55}
+                      maxZoom={20}
+                    />
+                  </MapContainer>
                 ) : (
-                  <div className="absolute inset-0 flex items-center justify-center text-slate-500 text-xs">No Scan Data</div>
+                  <div className="absolute inset-0 flex items-center justify-center text-slate-500 text-xs bg-slate-900">No tile data</div>
                 )}
              </div>
              
@@ -254,6 +280,12 @@ export default function FireResult() {
            </div>
 
         </div>
+        {/* AI Intelligence Report */}
+        <IntelligenceReportCard report={result.intelligence_report} />
+
+        {/* Cross-Module Correlation Findings */}
+        <CompositeFindingsBanner findings={result.composite_findings} />
+
       </main>
     </div>
   );

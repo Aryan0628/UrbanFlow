@@ -57,6 +57,7 @@ import DepartmentComplaintMap from "./pages/administration/DepartmentComplaintMa
 import CircularText from "./components/CircularText"
 import SafetyReports from "./pages/administration/SafetyReports";
 import CivicAnalytics from "./pages/administration/CivicAnalytics";
+import GeoScopeHistory from "./pages/administration/gee/GeoScopeHistory";
 
 import AssignTask from "./pages/administration/muncipal/waste/assignTask";
 import NotificationFeed from "./components/NotificationFeed"
@@ -230,6 +231,14 @@ function App() {
           element={
             <ProtectedRoute>
               <EnvironmentalHub />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/administration/geoscope/history"
+          element={
+            <ProtectedRoute>
+              <GeoScopeHistory />
             </ProtectedRoute>
           }
         />

@@ -2,7 +2,7 @@ import express from "express";
 import { getUserById } from "../controllers/user.controller.js";
 import { checkJwt } from "../auth/authMiddleware.js";
 import { fetchReportsByUserId } from "../controllers/user/getRepots.js"
-import { db, FieldValue } from "../firebaseadmin/firebaseadmin.js";
+import { db, FieldValue } from "../firebaseadmin/firebaseAdmin.js";
 import axios from "axios";
 
 const router = express.Router();
@@ -91,6 +91,19 @@ router.patch("/worker-interest", checkJwt, async (req, res) => {
           console.error("Error calling Python AI Agent for embedding:", agentError.message);
         }
       })();
+
+      // 🆕 Graph RAG: Extract skills from profile and write has_skill edges
+      const profileText = [
+        description || '',
+        (Array.isArray(workerCategories) ? workerCategories : []).join(' ')
+      ].join(' ').trim();
+
+      if (profileText) {
+        axios.post(`${pyAgentUrl}/graph-extract-skills`, {
+          worker_id: userId,
+          text: profileText,
+        }).catch(err => console.error('[Graph Skills] Worker skill extraction failed:', err.message));
+      }
     }
 
     return res.json({ success: true, updateData });
@@ -231,6 +244,83 @@ router.get("/learning-schemes", checkJwt, async (req, res) => {
   } catch (err) {
     console.error("GET /learning-schemes error:", err);
     return res.status(500).json({ message: "Failed to fetch learning schemes" });
+  }
+});
+
+// ─── Graph RAG: Learning Schemes with graph-aware context ───
+router.get("/learning-schemes-graph", checkJwt, async (req, res) => {
+  try {
+    const userId = req.auth.payload.sub;
+
+    // 1. Fetch User Data
+    const userRef = db.collection("users").doc(userId);
+    const userSnap = await userRef.get();
+    if (!userSnap.exists) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    const userData = userSnap.data();
+
+    // 2. Call Python agent to get graph-based skill gaps
+    const pyAgentUrl = process.env.AGENT_URL || process.env.PYTHON_SERVER || "http://127.0.0.1:10000";
+
+    // Get worker's gap embedding with graph context
+    const gapContext = userData.skill_gap_string || "";
+    const workerCategories = userData.workerCategories || [];
+
+    const embedRes = await axios.post(`${pyAgentUrl}/embed`, {
+      text: `Worker needs improvement in: ${gapContext}. Primary category: ${workerCategories.join(', ')}`
+    });
+    const gapVector = embedRes.data.embedding;
+
+    if (!gapVector || gapVector.length === 0) {
+      return res.json({ success: true, upgradationCourses: [], improvementCourses: [] });
+    }
+
+    // 3. Fetch all Government Schemes and score them
+    const schemesSnap = await db.collection("gov_schemes").get();
+    const allSchemes = [];
+
+    schemesSnap.forEach(doc => {
+      const data = doc.data();
+      const schemeEmbedding = data.scheme_embedding?.toArray
+        ? data.scheme_embedding.toArray()
+        : data.scheme_embedding;
+
+      if (schemeEmbedding) {
+        allSchemes.push({
+          id: doc.id,
+          ...data,
+          scheme_embedding: schemeEmbedding
+        });
+      }
+    });
+
+    // 4. Score with gap vector
+    const scoredSchemes = allSchemes.map(scheme => {
+      const score = cosineSimilarity(gapVector, scheme.scheme_embedding);
+      // Boost schemes that mention weak skills in their searchable text
+      const gapBoost = (gapContext && scheme.searchable_text?.toLowerCase().includes(gapContext.toLowerCase().split(' ')[0]))
+        ? 0.15 : 0;
+      return { ...scheme, similarityScore: score + gapBoost };
+    });
+
+    scoredSchemes.sort((a, b) => b.similarityScore - a.similarityScore);
+
+    // 5. Split into upgradation and improvement
+    const topSchemes = scoredSchemes.slice(0, 10).map(s => {
+      const { scheme_embedding, ...rest } = s;
+      return rest;
+    });
+
+    return res.json({
+      success: true,
+      upgradationCourses: topSchemes.slice(0, 5),
+      improvementCourses: topSchemes.slice(5)
+    });
+
+  } catch (err) {
+    console.error("GET /learning-schemes-graph error:", err);
+    return res.status(500).json({ message: "Failed to fetch graph-based learning schemes" });
   }
 });
 

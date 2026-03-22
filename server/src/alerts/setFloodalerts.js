@@ -1,4 +1,4 @@
-import { db } from "../firebaseadmin/firebaseadmin.js";
+import { db } from "../firebaseadmin/firebaseAdmin.js";
 
 export const setFloodAlert = async (req, res) => {
   try {

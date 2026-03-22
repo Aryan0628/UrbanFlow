@@ -3,6 +3,12 @@ import { ArrowLeft, AlertTriangle, CheckCircle, Calendar, Layers, TriangleAlert,
 import { useAuth0 } from '@auth0/auth0-react';
 import { useState } from 'react'; 
 import { api } from '../../../lib/api';
+import { MapContainer, TileLayer } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
+import { useRegionCenter } from '../../../hooks/useRegionCenter';
+import MapAutoCenter from '../../../components/gee/MapAutoCenter';
+import IntelligenceReportCard from '../../../components/gee/IntelligenceReportCard';
+import CompositeFindingsBanner from '../../../components/gee/CompositeFindingsBanner';
 
 export default function DeforestationResult() {
   const location = useLocation();
@@ -13,6 +19,7 @@ export default function DeforestationResult() {
   const { data } = location.state || {};
   const result = data?.result;
   const reportRef = result?.reportref;
+  const { center, zoom, bounds } = useRegionCenter(result?.regionGeoJson || data?.regionGeoJson);
   console.log("result",result);
   console.log("reportRef",reportRef);
 
@@ -177,24 +184,44 @@ export default function DeforestationResult() {
              <NdviLegend />
            </div>
            
-           {/* MASK IMAGE */}
+           {/* INTERACTIVE TILE MAP — replaces static change_image_url img */}
            <div className="space-y-3">
              <h3 className="font-bold text-slate-700 flex items-center gap-2 text-sm md:text-base">
-               <Layers className="w-4 h-4 text-red-500" /> Deforestation Mask
+               <Layers className="w-4 h-4 text-red-500" /> Live Deforestation Map
              </h3>
-             <div className="aspect-square bg-slate-900 rounded-2xl overflow-hidden border border-slate-800 shadow-inner relative group flex items-center justify-center p-2">
-                <div className="absolute inset-0 opacity-50 grayscale">
-                  {result.start_image_url && <img src={result.start_image_url} className="w-full h-full object-contain" />}
-                </div>
-                
-                {result.change_image_url && (
-                  <img src={result.change_image_url} alt="Change Mask" className="absolute inset-0 w-full h-full object-contain z-10 p-2" />
-                )}
+
+             <div className="aspect-square rounded-2xl overflow-hidden border border-slate-800 shadow-inner relative"
+                  style={{ minHeight: '300px' }}>
+
+               {result.tile_url ? (
+                 <MapContainer
+                   center={center}
+                   zoom={zoom}
+                   style={{ width: '100%', height: '100%' }}
+                   zoomControl={true}
+                   scrollWheelZoom={false}
+                 >
+                   <MapAutoCenter bounds={bounds} />
+                   <TileLayer
+                     url="https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}"
+                     attribution="&copy; Google Maps"
+                     maxZoom={20}
+                   />
+                   <TileLayer
+                     url={result.tile_url}
+                     opacity={0.55}
+                     maxZoom={20}
+                   />
+                 </MapContainer>
+               ) : (
+                 <div className="absolute inset-0 flex items-center justify-center text-slate-400 text-xs bg-slate-900">
+                   No tile data
+                 </div>
+               )}
              </div>
-             
-             {/* SPECIFIC LEGEND FOR LOSS MASK ADDED */}
+
+             {/* Existing loss mask legend */}
              <div className="mt-3 p-3 bg-slate-900 rounded-xl border border-slate-800 shadow-sm">
-                {/* Gradient matches Python script: Dark Red -> Red -> Orange */}
                 <div className="h-3 rounded-full w-full bg-gradient-to-r from-[#300000] via-[#ff0000] to-[#ff8c00] mb-2" />
                 <div className="flex justify-between text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                   <span>Severe Loss (-0.6)</span>
@@ -204,6 +231,13 @@ export default function DeforestationResult() {
 
            </div>
         </div>
+
+        {/* AI Intelligence Report */}
+        <IntelligenceReportCard report={result.intelligence_report} />
+        
+        {/* Cross-Module Correlation Findings */}
+        <CompositeFindingsBanner findings={result.composite_findings} />
+
       </main>
     </div>
   );

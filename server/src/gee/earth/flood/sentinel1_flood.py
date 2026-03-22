@@ -91,7 +91,8 @@ def check_flooding(region_geometry, threshold_percent, buffer_radius_meters, rec
                 "total_area_sqkm": 0,
                 "threshold_percent":threshold_percent,
                 "start_image_url":None, 
-                "end_image_url": None,      
+                "end_image_url": None,
+                "tile_url": None,
                 "dates": {
                     "scan_window_start": start_date_recent.format('YYYY-MM-dd').getInfo(),
                     "scan_window_end": end_date_recent.format('YYYY-MM-dd').getInfo(),
@@ -159,6 +160,14 @@ def check_flooding(region_geometry, threshold_percent, buffer_radius_meters, rec
         
         # --- IMPROVED VISUALIZATION END ---
 
+        # --- TILE URL FOR INTERACTIVE MAP ---
+        try:
+            map_id = composite_flood_img.getMapId({})
+            tile_url = map_id['tile_fetcher'].url_format
+        except Exception as e:
+            print(f"WARNING: getMapId failed: {e}", file=sys.stderr)
+            tile_url = None
+
         return {
             "status": "success",
             "alert_triggered": alert_triggered,
@@ -167,7 +176,8 @@ def check_flooding(region_geometry, threshold_percent, buffer_radius_meters, rec
             "total_area_sqkm": round(total_sqkm, 3),
             "threshold_percent": threshold_percent,
             "start_image_url": baseline_url, 
-            "end_image_url": flood_url,      
+            "end_image_url": flood_url,
+            "tile_url": tile_url,
             "dates": {
                "scan_window_start": start_date_recent.format('YYYY-MM-dd').getInfo(),
                 "scan_window_end": end_date_recent.format('YYYY-MM-dd').getInfo(),
@@ -176,10 +186,10 @@ def check_flooding(region_geometry, threshold_percent, buffer_radius_meters, rec
 
     except ee.EEException as e:
         print(f"ERROR: GEE Error: {e}", file=sys.stderr)
-        return {"status": "error", "message": f"GEE Error: {str(e)}"}
+        return {"status": "error", "message": f"GEE Error: {str(e)}", "tile_url": None}
     except Exception as e:
         print(f"ERROR: Script Error: {e}", file=sys.stderr)
-        return {"status": "error", "message": f"Script Error: {str(e)}"}
+        return {"status": "error", "message": f"Script Error: {str(e)}", "tile_url": None}
 
 
 if __name__ == "__main__":

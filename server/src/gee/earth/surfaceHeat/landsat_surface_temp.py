@@ -88,7 +88,8 @@ def check_heat_islands(region_geometry, threshold, recentDays):
                 "status": "success", 
                 "message": f"No clear thermal data found.",
                 "data_found": False,
-                "heatmap_url": None
+                "heatmap_url": None,
+                "tile_url": None
             }
 
         # 4. Get Metadata
@@ -120,7 +121,8 @@ def check_heat_islands(region_geometry, threshold, recentDays):
                 "status": "success", 
                 "message": "Data exists but pixels masked.", 
                 "data_found": True,
-                "value_valid": False
+                "value_valid": False,
+                "tile_url": None
             }
         
         print(f"UrbanFlow Result: Min={min_temp:.2f}, Mean={mean_temp:.2f}, Max={max_temp:.2f}", file=sys.stderr)
@@ -151,6 +153,17 @@ def check_heat_islands(region_geometry, threshold, recentDays):
         
         heatmap_url = get_heatmap_url(temp_celsius, region_geometry, vis_params)
 
+        # --- TILE URL FOR INTERACTIVE MAP ---
+        try:
+            map_id = temp_celsius.getMapId({
+                'min': -20, 'max': 50,
+                'palette': ['0000FF', '00FFFF', '00FF00', 'FFFF00', 'FF0000']
+            })
+            tile_url = map_id['tile_fetcher'].url_format
+        except Exception as e:
+            print(f"WARNING: getMapId failed: {e}", file=sys.stderr)
+            tile_url = None
+
         return {
             "status": "success",
             "data_found": True,
@@ -165,6 +178,7 @@ def check_heat_islands(region_geometry, threshold, recentDays):
             "satellite_source": used_sat_name,
             "latest_image_id": latest_id,
             "heatmap_url": heatmap_url,
+            "tile_url": tile_url,
             "dates": {
                 "scan_window_start": start_date.format('YYYY-MM-dd').getInfo(),
                 "scan_window_end": end_date.format('YYYY-MM-dd').getInfo()
@@ -173,7 +187,7 @@ def check_heat_islands(region_geometry, threshold, recentDays):
 
     except Exception as e:
         print(f"ERROR: Logic Error: {e}", file=sys.stderr)
-        return {"status": "error", "message": str(e)}
+        return {"status": "error", "message": str(e), "tile_url": None}
 
 # --- MAIN EXECUTION BLOCK ---
 if __name__ == "__main__":

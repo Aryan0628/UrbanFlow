@@ -10,6 +10,13 @@ const questionSchema = new mongoose.Schema({
   isAnswered: { type: Boolean, default: false },
   votes: { type: Number, default: 0 },
 
+  // Civic Syndication Fields
+  isCivicReport: { type: Boolean, default: false },
+  reportId: { type: String, default: null },
+  reportCategory: { type: String, default: null },
+  reportStatus: { type: String, enum: ['PENDING', 'ASSIGNED', 'USERVERIFICATION', 'RESOLVED'], default: 'PENDING' },
+  geohash: { type: String, default: null },
+
   // AI Analysis Fields (populated by fire-and-forget agent)
   aiAnalysis: {
     sentiment: { type: String, enum: ['POSITIVE', 'NEUTRAL', 'NEGATIVE', 'ALARMING'], default: null },

@@ -3,6 +3,12 @@ import { ArrowLeft, AlertTriangle, CheckCircle, Calendar, Layers, Droplets, Wave
 import { useAuth0 } from '@auth0/auth0-react';
 import { useState } from 'react';
 import { api } from '../../../lib/api.js';
+import { MapContainer, TileLayer } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
+import { useRegionCenter } from '../../../hooks/useRegionCenter';
+import MapAutoCenter from '../../../components/gee/MapAutoCenter';
+import IntelligenceReportCard from '../../../components/gee/IntelligenceReportCard';
+import CompositeFindingsBanner from '../../../components/gee/CompositeFindingsBanner';
 
 export default function FloodResult() {
   const location = useLocation();
@@ -12,6 +18,7 @@ export default function FloodResult() {
   const { data } = location.state || {};
   const result = data?.result;
   const reportRef = result?.reportref;
+  const { center, zoom, bounds } = useRegionCenter(result?.regionGeoJson || data?.regionGeoJson);
   
   const handleAlert = async () => {
     try {
@@ -187,21 +194,40 @@ export default function FloodResult() {
              <RadarLegend />
            </div>
 
-           {/* COL 2: Detected Flood Extent */}
+           {/* COL 2: Interactive Tile Map */}
            <div className="space-y-3 group">
              <h3 className="font-bold text-slate-700 flex items-center gap-2 text-sm md:text-base">
                <Layers className="w-4 h-4 text-cyan-500" /> 
-               Detected Flood Extent
+               Live Flood Map
              </h3>
-             <div className="aspect-square bg-slate-900 rounded-2xl overflow-hidden border-2 border-slate-800 shadow-2xl relative flex items-center justify-center p-2">
-                {result.end_image_url ? (
-                  <img src={result.end_image_url} alt="Flood Map" className="w-full h-full object-contain" />
+             <div className="aspect-square rounded-2xl overflow-hidden border-2 border-slate-800 shadow-2xl relative"
+                  style={{ minHeight: '300px' }}>
+                {result.tile_url ? (
+                  <MapContainer
+                    center={center}
+                    zoom={zoom}
+                    style={{ width: '100%', height: '100%' }}
+                    zoomControl={true}
+                    scrollWheelZoom={false}
+                  >
+                    <MapAutoCenter bounds={bounds} />
+                   <TileLayer
+                      url="https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}"
+                      attribution="&copy; Google Maps"
+                      maxZoom={20}
+                    />
+                    <TileLayer
+                      url={result.tile_url}
+                      opacity={0.55}
+                      maxZoom={20}
+                    />
+                  </MapContainer>
                 ) : (
-                  <div className="absolute inset-0 flex items-center justify-center text-slate-500 text-xs font-mono">No Flood Mask Generated</div>
+                  <div className="absolute inset-0 flex items-center justify-center text-slate-500 text-xs font-mono bg-slate-900">No tile data</div>
                 )}
                 
                 {/* Minimal Overlay */}
-                <div className="absolute top-3 right-3">
+                <div className="absolute top-3 right-3 z-[1000]">
                    <span className="flex h-3 w-3">
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
                       <span className="relative inline-flex rounded-full h-3 w-3 bg-cyan-500"></span>
@@ -238,6 +264,12 @@ export default function FloodResult() {
            </div>
 
         </div>
+        {/* AI Intelligence Report */}
+        <IntelligenceReportCard report={result.intelligence_report} />
+
+        {/* Cross-Module Correlation Findings */}
+        <CompositeFindingsBanner findings={result.composite_findings} />
+
       </main>
     </div>
   );

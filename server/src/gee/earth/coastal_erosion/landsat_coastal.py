@@ -77,10 +77,10 @@ def analyze_erosion(region_geometry, historic_year, current_year):
         curr_img = get_yearly_composite(current_year, region_geometry)
 
         if hist_img is None:
-            return {"status": "error", "message": f"No clear satellite data found for historic year {historic_year}"}
+            return {"status": "error", "message": f"No clear satellite data found for historic year {historic_year}", "tile_url": None}
         
         if curr_img is None:
-            return {"status": "error", "message": f"No clear satellite data found for current year {current_year}"}
+            return {"status": "error", "message": f"No clear satellite data found for current year {current_year}", "tile_url": None}
 
         WATER_THRESHOLD = 0.1
         # Create binary masks (1=Water, 0=Land)
@@ -138,18 +138,30 @@ def analyze_erosion(region_geometry, historic_year, current_year):
         vis_url = get_image_url(classified_img, region_geometry, vis_params, "change_map")
         # --- END MODIFICATION ---
 
+        # --- TILE URL FOR INTERACTIVE MAP ---
+        try:
+            map_id = classified_img.getMapId({
+                'min': 0, 'max': 3,
+                'palette': ['#E0E0E0', '#FF0000', '#00FF00', '#004b8d']
+            })
+            tile_url = map_id['tile_fetcher'].url_format
+        except Exception as e:
+            print(f"WARNING: getMapId failed: {e}", file=sys.stderr)
+            tile_url = None
+
         return {
             "status": "success",
             "message": status_msg,
             "net_land_change_hectares": round(land_change_hectares, 2),
             "erosion_detected": land_change_hectares < -1.0, 
             "comparison_years": f"{historic_year} vs {current_year}",
-            "visualization_url": vis_url
+            "visualization_url": vis_url,
+            "tile_url": tile_url
         }
 
     except Exception as e:
         print(f"ERROR: Script Error: {e}", file=sys.stderr)
-        return {"status": "error", "message": str(e)}
+        return {"status": "error", "message": str(e), "tile_url": None}
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
