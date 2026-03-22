@@ -68,7 +68,7 @@ const INTENTS = [
       "water problem",
       "electricity",
     ],
-    description: "File a civic complaint (CivicConnect)",
+    description: "File a civic complaint (CityHub)",
   },
   {
     intent: "fire_sos",

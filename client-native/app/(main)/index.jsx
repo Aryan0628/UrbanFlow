@@ -52,7 +52,7 @@ const FEATURES = [
   },
   {
     id: 'reports',
-    title: 'CivicConnect',
+    title: 'CityHub',
     description: 'AI-powered grievance reporting for infrastructure, electricity, water, and waste management.',
     route: '/(main)/(tabs)/CivicConnect',
     Icon: Megaphone,

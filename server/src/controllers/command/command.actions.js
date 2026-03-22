@@ -235,7 +235,7 @@ const actionHandlers = {
 
   // ─── Navigation intents (simple responses) ────
   file_complaint: async () => ({
-    reply: "Opening **CivicConnect** for you. You can file a grievance report there.",
+    reply: "Opening **CityHub** for you. You can file a grievance report there.",
     action: { type: "navigate", path: "/(main)/(tabs)/CivicConnect" },
   }),
 
@@ -276,7 +276,7 @@ const actionHandlers = {
       `• **Post a job** — Create a StreetGig listing\n` +
       `• **My jobs** — View your posted jobs\n` +
       `• **Notifications** — Check alerts\n` +
-      `• **File complaint** — Open CivicConnect\n` +
+      `• **File complaint** — Open CityHub\n` +
       `• **My profile** — View your info\n` +
       `• **Learning schemes** — Course recommendations`,
   }),
