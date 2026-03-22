@@ -113,6 +113,50 @@ TOOL_SCHEMAS = [
             "required": [],
         },
     },
+    {
+        "name": "post_job",
+        "description": "Post a new StreetGig job. This is a multi-turn flow. On the first call provide whatever info you have. The server will ask for missing fields step by step. Pass the accumulated collected_data back on each subsequent call.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "category": {
+                    "type": "string",
+                    "description": "Job category e.g. Plumber, Electrician, Carpenter, Cleaners, Painters, etc.",
+                },
+                "amount": {
+                    "type": "string",
+                    "description": "Budget amount e.g. 500, 1000",
+                },
+                "time": {
+                    "type": "string",
+                    "description": "Duration e.g. Quick (< 1 hr), 1-2 Hours, Half Day, Full Day, Flexible",
+                },
+                "description": {
+                    "type": "string",
+                    "description": "Description of the work needed",
+                },
+                "collected_data": {
+                    "type": "object",
+                    "description": "Previously collected data from earlier turns in this flow. Pass this back on each subsequent call.",
+                },
+            },
+            "required": [],
+        },
+    },
+    {
+        "name": "search_kindshare",
+        "description": "Search for active donation requests on KindShare. Use when user asks about donating, wants to help, or asks if anyone needs donations.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "category": {
+                    "type": "string",
+                    "description": "Optional category filter: food, clothes, medicine, books, etc.",
+                }
+            },
+            "required": [],
+        },
+    },
 ]
 
 
@@ -147,6 +191,10 @@ async def execute_tool(tool_name: str, args: dict, user_id: str, token: str = No
             return _navigate(args.get("destination", ""))
         elif tool_name == "check_updates":
             return await _check_updates(user_id, token)
+        elif tool_name == "post_job":
+            return await _post_job(args, user_id, token)
+        elif tool_name == "search_kindshare":
+            return await _search_kindshare(args, token)
         else:
             return {"error": f"Unknown tool: {tool_name}"}
     except Exception as e:
@@ -274,3 +322,57 @@ async def _check_updates(user_id: str, token: str) -> dict:
         "updates": updates,
         "has_updates": len(updates) > 0,
     }
+
+
+async def _post_job(args: dict, user_id: str, token: str) -> dict:
+    """Multi-turn job posting via the command endpoint."""
+    try:
+        # Build collected data from whatever the LLM extracted
+        collected = args.get("collected_data") or {}
+        for field in ["category", "amount", "time", "description"]:
+            val = args.get(field)
+            if val:
+                collected[field] = val
+
+        data = await _post("/api/command/process", {
+            "text": args.get("description") or args.get("category") or "post a job",
+            "pendingIntent": "post_job",
+            "collectedData": collected,
+            "conversationHistory": [],
+        }, token)
+
+        result = {"tool": "post_job", "data": data}
+
+        # If the server returned a followUp, it means more info is needed
+        if data.get("followUp"):
+            result["needs_more_info"] = True
+            result["collected_data"] = data.get("collectedData", collected)
+
+        # If the server returned a navigation action, the job was created
+        if data.get("action"):
+            result["action"] = data["action"]
+
+        return result
+    except Exception as e:
+        return {"tool": "post_job", "error": str(e)}
+
+
+async def _search_kindshare(args: dict, token: str) -> dict:
+    """Search active donation requests on KindShare."""
+    try:
+        category = args.get("category", "")
+        text = f"search kindshare donations{' ' + category if category else ''}"
+
+        data = await _post("/api/command/process", {
+            "text": text,
+            "pendingIntent": "search_kindshare",
+            "collectedData": {"category": category} if category else {},
+            "conversationHistory": [],
+        }, token)
+
+        result = {"tool": "search_kindshare", "data": data}
+        if data.get("action"):
+            result["action"] = data["action"]
+        return result
+    except Exception as e:
+        return {"tool": "search_kindshare", "error": str(e)}

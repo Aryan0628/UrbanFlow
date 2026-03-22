@@ -42,7 +42,7 @@ api.interceptors.response.use(
     return response;
   },
   (error) => {
-    //console.error("Response Error:", error);
+    console.error("Response Error:", error);
 
     // Handle specific error codes globally
     if (error.response) {
