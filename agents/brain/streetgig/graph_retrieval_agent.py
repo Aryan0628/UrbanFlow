@@ -29,18 +29,25 @@ async def get_candidate_pool(
         'from_type': 'worker'
     }).to_list(length=500)
 
-    worker_skill_counts = {}
+    worker_skill_data = {} # wid -> {'skills': [], 'weights': []}
     for edge in exact_edges:
         wid = edge['from_id']
-        worker_skill_counts[wid] = worker_skill_counts.get(wid, []) + [edge['to_id']]
+        if wid not in worker_skill_data:
+            worker_skill_data[wid] = {'skills': [], 'weights': []}
+        worker_skill_data[wid]['skills'].append(edge['to_id'])
+        worker_skill_data[wid]['weights'].append(edge.get('weight', 0))
 
-    for wid, skills in worker_skill_counts.items():
+    for wid, data in worker_skill_data.items():
+        skills = data['skills']
+        weights = data['weights']
         overlap = len(set(skills) & set(job_skill_ids)) / max(len(job_skill_ids), 1)
+        avg_weight = sum(weights) / len(weights) if weights else 0
         candidates[wid] = {
             'worker_id': wid,
             'match_type': 'exact',
             'graph_score': overlap,  # 1.0 = has all required skills
             'matched_skills': skills,
+            'weight': avg_weight, # 🔥 Pass avg skill rating to scorer
         }
 
     # ── Stage 2: Adjacent skill matches ──────────────────────
@@ -68,6 +75,7 @@ async def get_candidate_pool(
                     'match_type': 'adjacent',
                     'graph_score': 0.65,  # adjacent carries 65% of exact weight
                     'matched_skills': [edge['to_id']],
+                    'weight': edge.get('weight', 0),
                 }
 
     # ── Stage 3: Repeat-hire boost ───────────────────────────
@@ -84,7 +92,8 @@ async def get_candidate_pool(
         repeat_count = edge.get('metadata', {}).get('repeat_count', 1)
         boost = min(0.15 * repeat_count, 0.30)  # max +30% boost
         if wid in candidates:
-            candidates[wid]['graph_score'] = min(candidates[wid]['graph_score'] + boost, 1.0)
+            current_score = float(candidates[wid]['graph_score'])
+            candidates[wid]['graph_score'] = float(min(current_score + boost, 1.0))
             candidates[wid]['repeat_hire'] = True
         else:
             candidates[wid] = {

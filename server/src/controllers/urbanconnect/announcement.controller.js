@@ -49,41 +49,22 @@ export const searchAnnouncementsForRAG = async (req, res) => {
     }
 
     // Build the MongoDB Atlas Hybrid Search Pipeline
-    const pipeline = [
-      {
-        $search: {
-          index: "hybrid_announcement_index", // This MUST match the name of the index in Atlas
-          compound: {
-            should: [
-              // 1. The Vector Search (Semantic Meaning)
-              {
-                vector: {
-                  queryVector: embedding,
-                  path: "embedding",
-                  numCandidates: 100,
-                  limit: 5
-                }
-              }
-            ]
-          }
-        }
+    const baseVectorSearch = {
+      index: "hybrid_announcement_index", // This MUST match the name of the index in Atlas
+      vectorSearch: {
+        // Handle dimension mismatch: slice 1536 dim to 768 dim if required by your index
+        queryVector: embedding.length > 768 ? embedding.slice(0, 768) : embedding,
+        path: "embedding",
+        numCandidates: 100,
+        limit: 5
       }
-    ];
+    };
 
-    // 2. The BM25 Text Search (Exact Keywords)
-    // If the Python agent sends the text, we add the keyword search to the pipeline
-    if (queryText) {
-      pipeline[0].$search.compound.should.push({
-        text: {
-          query: queryText,
-          path: ["title", "body", "department"] // Fields to check for keywords
-        }
-      });
-    }
+    const filterCompound = {};
 
-    // 3. The Pre-Filter (Hard constraint: Must match the city)
+    // 2. The Pre-Filter (Hard constraint: Must match the city)
     if (city) {
-      pipeline[0].$search.compound.filter = [
+      filterCompound.must = [
         {
           text: {
             query: city,
@@ -93,8 +74,27 @@ export const searchAnnouncementsForRAG = async (req, res) => {
       ];
     }
 
-    // Only get the top 5 results
-    pipeline.push({ $limit: 5 });
+    // 3. The BM25 Text Search (Exact Keywords)
+    // Add the keyword search to the filter pipeline as an optional 'should' match 
+    if (queryText) {
+      filterCompound.should = [
+        {
+          text: {
+            query: queryText,
+            path: ["title", "body", "department"] // Fields to check for keywords
+          }
+        }
+      ];
+    }
+
+    if (filterCompound.must || filterCompound.should) {
+      baseVectorSearch.vectorSearch.filter = { compound: filterCompound };
+    }
+
+    const pipeline = [
+      { $search: baseVectorSearch },
+      { $limit: 5 }
+    ];
 
     // Lookup the authority details (since we are using aggregation, we can't use standard .populate())
     // NOTE: Change "administrations" to whatever your actual authority collection name is in MongoDB
