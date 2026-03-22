@@ -8,6 +8,12 @@ import {
   TrendingUp,
   FileText,
   ChevronDown,
+  Globe,
+  Activity,
+  Lightbulb,
+  MessageCircle,
+  ExternalLink,
+  MapPin
 } from "lucide-react";
 import { api } from "../../lib/api.js";
 
@@ -231,13 +237,19 @@ function ClusterDetailView({ clusterId, onSummaryGenerated }) {
 
 export default function CivicAnalytics() {
   const navigate = useNavigate();
+  const [expandedCluster, setExpandedCluster] = useState(null);
+  const [expandedPulseIssue, setExpandedPulseIssue] = useState(null);
   const [sentimentStats, setSentimentStats] = useState(null);
   const [emergingIssues, setEmergingIssues] = useState([]);
   const [misinformation, setMisinformation] = useState([]);
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [days, setDays] = useState(7);
-  const [expandedCluster, setExpandedCluster] = useState(null);
+
+  // ✨ --- NEWLY ADDED BY ME: State for City Pulse Data --- ✨
+  const [cityPulse, setCityPulse] = useState(null);
+  const [pulseLoading, setPulseLoading] = useState(true);
+  // ✨ --------------------------------------------------- ✨
 
   useEffect(() => {
     fetchAll();
@@ -245,22 +257,37 @@ export default function CivicAnalytics() {
 
   const fetchAll = async () => {
     setLoading(true);
+    setPulseLoading(true); // ✨ --- NEWLY ADDED BY ME --- ✨
+    
     try {
-      const [statsRes, issuesRes, misRes, postsRes] = await Promise.allSettled([
+      const [statsRes, issuesRes, misRes, postsRes, pulseRes] = await Promise.allSettled([
         api.get(`/api/civic-analytics/sentiment-stats?days=${days}`),
         api.get("/api/civic-analytics/emerging-issues"),
         api.get("/api/civic-analytics/misinformation?limit=10"),
         api.get("/api/civic-analytics/posts?limit=20"),
+        // ✨ --- NEWLY ADDED BY ME: The new separate backend call for City Pulse --- ✨
+        // Adjust this endpoint URL to match whatever you named the route in your Node backend
+        api.get("/api/city-pulse/latest") 
+        // ✨ ---------------------------------------------------------------------- ✨
       ]);
 
       if (statsRes.status === "fulfilled") setSentimentStats(statsRes.value.data);
       if (issuesRes.status === "fulfilled") setEmergingIssues(issuesRes.value.data.data || []);
       if (misRes.status === "fulfilled") setMisinformation(misRes.value.data.data || []);
       if (postsRes.status === "fulfilled") setPosts(postsRes.value.data.data || []);
+      
+      // ✨ --- NEWLY ADDED BY ME: Setting City Pulse state --- ✨
+      if (pulseRes.status === "fulfilled") {
+        // Support either res.data directly or res.data.data depending on your backend wrapper
+        setCityPulse(pulseRes.value.data.data || pulseRes.value.data);
+      }
+      // ✨ --------------------------------------------------- ✨
+
     } catch (err) {
       console.error("Failed to fetch analytics:", err);
     } finally {
       setLoading(false);
+      setPulseLoading(false); // ✨ --- NEWLY ADDED BY ME --- ✨
     }
   };
 
@@ -269,6 +296,7 @@ export default function CivicAnalytics() {
       c._id === clusterId ? { ...c, clusterMetadata: aiSummary } : c
     ));
   };
+  
   return (
     <div className="min-h-screen bg-slate-50 font-sans">
       {/* ─── Header ─── */}
@@ -343,6 +371,170 @@ export default function CivicAnalytics() {
               theme="red"
             />
           </div>
+
+          {/* ✨ --- NEWLY ADDED BY ME: The Social Media City Pulse Section --- ✨ */}
+          {pulseLoading ? (
+            <div className="bg-slate-900 rounded-2xl p-8 flex justify-center border border-slate-800">
+               <div className="w-6 h-6 border-2 border-slate-700 border-t-indigo-500 rounded-full animate-spin" />
+            </div>
+          ) : cityPulse ? (
+            <div className="bg-slate-900 rounded-2xl border border-slate-800 p-6 shadow-xl text-white relative overflow-hidden">
+              {/* Decorative Background Glow */}
+              <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
+              
+              <div className="flex flex-col md:flex-row gap-8 relative z-10">
+                {/* Left Side: Trust Score & Trend */}
+                <div className="md:w-1/3 border-b md:border-b-0 md:border-r border-slate-800 pb-6 md:pb-0 md:pr-6">
+                  <h2 className="text-lg font-black text-white mb-6 flex items-center gap-2">
+                    <Globe className="w-5 h-5 text-indigo-400" />
+                    City Pulse (Web Radar)
+                  </h2>
+                  
+                  <div className="mb-6">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Public Trust Score</p>
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-5xl font-black text-white">{cityPulse.sentiment_metrics?.public_trust_score?.toFixed(1) || "0.0"}</span>
+                      <span className="text-sm font-bold text-slate-500">/ 10</span>
+                    </div>
+                  </div>
+
+                  <div className={`p-4 rounded-xl border ${cityPulse.trend_analysis?.direction === 'DECLINING' ? 'bg-red-500/10 border-red-500/20 text-red-400' : cityPulse.trend_analysis?.direction === 'IMPROVING' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-slate-800/50 border-slate-700 text-slate-300'}`}>
+                    <div className="flex items-center gap-2 mb-1">
+                      <Activity className="w-4 h-4" />
+                      <span className="text-xs font-bold uppercase tracking-wider">{cityPulse.trend_analysis?.direction} ({cityPulse.trend_analysis?.trust_score_delta > 0 ? '+' : ''}{cityPulse.trend_analysis?.trust_score_delta})</span>
+                    </div>
+                    <p className="text-xs font-medium leading-relaxed opacity-90">{cityPulse.trend_analysis?.insight}</p>
+                  </div>
+
+                  <div className="mt-6 flex gap-2 flex-wrap">
+                    <span className="text-[10px] font-bold px-2 py-1 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/20">
+                      Primary Emotion: {cityPulse.sentiment_metrics?.primary_emotion || "Neutral"}
+                    </span>
+                    {cityPulse.sentiment_metrics?.top_target_authority && (
+                      <span className="text-[10px] font-bold px-2 py-1 rounded bg-orange-500/20 text-orange-300 border border-orange-500/20">
+                        Target: {cityPulse.sentiment_metrics.top_target_authority}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Right Side: AI Executive Summary & Actions */}
+                <div className="md:w-2/3">
+                   <div className="mb-6">
+                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-2">
+                       <FileText className="w-3 h-3" /> Executive Briefing
+                     </p>
+                     <p className="text-sm text-slate-300 leading-relaxed font-medium">
+                       {cityPulse.executive_summary}
+                     </p>
+                   </div>
+
+                   <div className="mb-6">
+                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-2">
+                       <Lightbulb className="w-3 h-3" /> Recommended Actions
+                     </p>
+                     <ul className="space-y-2">
+                       {(cityPulse.recommended_actions || []).map((action, idx) => (
+                         <li key={idx} className="text-xs text-slate-300 flex items-start gap-2">
+                           <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 mt-1.5 shrink-0" />
+                           {action}
+                         </li>
+                       ))}
+                     </ul>
+                   </div>
+
+                   {/* Extracted External Issues */}
+                   {cityPulse.extracted_issues && cityPulse.extracted_issues.length > 0 && (
+                     <div>
+                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                         <MessageCircle className="w-3 h-3" /> Top Web Issues ({cityPulse.extracted_issues.length})
+                       </p>
+                       <div className="space-y-4 max-h-[500px] overflow-y-auto custom-scrollbar pr-2 pb-4">
+                         {cityPulse.extracted_issues.map((issue, idx) => {
+                           const isExpanded = expandedPulseIssue === idx;
+                           return (
+                             <div 
+                               key={idx} 
+                               onClick={() => setExpandedPulseIssue(isExpanded ? null : idx)}
+                               className={`bg-slate-800/50 border border-slate-700 p-4 rounded-xl flex flex-col gap-3 hover:bg-slate-800 transition-all cursor-pointer group ${isExpanded ? 'border-indigo-500/50 ring-1 ring-indigo-500/20' : ''}`}
+                             >
+                               <div className="flex justify-between items-start gap-4">
+                                 <div className="flex-1">
+                                   <p className="text-sm font-black text-white mb-2 group-hover:text-indigo-300 transition-colors flex items-center gap-2">
+                                     {issue.title}
+                                     <ChevronDown className={`w-3 h-3 text-slate-500 transition-transform ${isExpanded ? 'rotate-180 text-indigo-400' : ''}`} />
+                                   </p>
+                                   <p className={`text-xs text-slate-400 leading-relaxed ${isExpanded ? '' : 'line-clamp-2'}`}>
+                                     {issue.description}
+                                   </p>
+                                 </div>
+                                  <div className="flex flex-col items-end gap-2 shrink-0">
+                                    <div className="flex gap-2 items-center">
+                                      <span className="text-[9px] font-bold text-slate-500 bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700 uppercase tracking-tighter">
+                                        {issue.category?.replace(/_/g, ' ')}
+                                      </span>
+                                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded shadow-sm ${URGENCY_COLORS[issue.severity_level] || "bg-slate-700 text-slate-300"}`}>
+                                        {issue.severity_level}
+                                      </span>
+                                    </div>
+                                    <span className="text-[10px] font-mono text-slate-500 bg-slate-900/50 px-1.5 py-0.5 rounded border border-slate-700/50">
+                                      Vol: {issue.complaint_volume}
+                                    </span>
+                                  </div>
+                               </div>
+
+                               {isExpanded && (
+                                 <div className="pt-3 border-t border-slate-700/50 mt-1 animate-in fade-in slide-in-from-top-2 duration-300">
+                                   {issue.locations_mentioned && issue.locations_mentioned.length > 0 && (
+                                     <div className="mb-4">
+                                       <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                                         <MapPin className="w-3 h-3" /> Locations Mentioned
+                                       </p>
+                                       <div className="flex flex-wrap gap-1.5">
+                                         {issue.locations_mentioned.map((loc, i) => (
+                                           <span key={i} className="text-[10px] bg-slate-900 text-slate-300 px-2 py-0.5 rounded border border-slate-700">
+                                             {loc}
+                                           </span>
+                                         ))}
+                                       </div>
+                                     </div>
+                                   )}
+
+                                   {issue.source_urls && issue.source_urls.length > 0 && (
+                                     <div>
+                                       <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                                         <ExternalLink className="w-3 h-3" /> Data Sources
+                                       </p>
+                                       <div className="flex flex-col gap-1.5">
+                                         {issue.source_urls.map((url, i) => (
+                                           <a 
+                                             key={i} 
+                                             href={url} 
+                                             target="_blank" 
+                                             rel="noopener noreferrer"
+                                             className="text-[10px] text-indigo-400 hover:text-indigo-300 hover:underline truncate flex items-center gap-1.5"
+                                             onClick={(e) => e.stopPropagation()}
+                                            >
+                                              <Globe className="w-2.5 h-2.5" />
+                                              {url}
+                                            </a>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                </div>
+              </div>
+            </div>
+          ) : null}
+          {/* ✨ ----------------------------------------------------------------- ✨ */}
 
           {/* ─── Sentiment Distribution ─── */}
           {sentimentStats && sentimentStats.total > 0 && (

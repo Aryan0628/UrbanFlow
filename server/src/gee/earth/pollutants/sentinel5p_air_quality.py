@@ -133,6 +133,7 @@ def check_air_quality(region_geometry, pollutant_code, threshold_override, recen
                 "threshold_used": threshold,
                 "air_quality_status": "No Data (Satellite Pass Pending)",
                 "heatmap_url": None,
+                "tile_url": None,
                 "message": f"No {config['name']} data available in last {recent_days} days.",
                 "dates": {
                     "scan_window_start": start_date.format('YYYY-MM-dd').getInfo(),
@@ -170,6 +171,7 @@ def check_air_quality(region_geometry, pollutant_code, threshold_override, recen
                 "threshold_used": threshold,
                 "air_quality_status": "Unknown (Obscured by Clouds)",
                 "heatmap_url": None,
+                "tile_url": None,
                 "message": "Data exists but area is obscured (likely clouds).",
                 "dates": {
                     "scan_window_start": start_date.format('YYYY-MM-dd').getInfo(),
@@ -183,6 +185,14 @@ def check_air_quality(region_geometry, pollutant_code, threshold_override, recen
         status_label = "Hazardous" if alert_triggered else "Good"
 
         heatmap_url = get_heatmap_url(mean_img, region_geometry, config['vis_params'])
+
+        # --- TILE URL FOR INTERACTIVE MAP ---
+        try:
+            map_id = mean_img.getMapId(config['vis_params'])
+            tile_url = map_id['tile_fetcher'].url_format
+        except Exception as e:
+            print(f"WARNING: getMapId failed: {e}", file=sys.stderr)
+            tile_url = None
 
         return {
             "status": "success",
@@ -198,6 +208,7 @@ def check_air_quality(region_geometry, pollutant_code, threshold_override, recen
             "threshold_used": threshold,
             "air_quality_status": status_label,
             "heatmap_url": heatmap_url,
+            "tile_url": tile_url,
             "dates": {
                 "scan_window_start": start_date.format('YYYY-MM-dd').getInfo(),
                 "scan_window_end": end_date.format('YYYY-MM-dd').getInfo()
@@ -206,7 +217,7 @@ def check_air_quality(region_geometry, pollutant_code, threshold_override, recen
 
     except Exception as e:
         print(f"ERROR: Logic Error: {e}", file=sys.stderr)
-        return {"status": "error", "message": str(e)}
+        return {"status": "error", "message": str(e), "tile_url": None}
 
 
 if __name__ == "__main__":

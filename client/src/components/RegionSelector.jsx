@@ -1,6 +1,6 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { GoogleMap, useJsApiLoader, DrawingManager } from '@react-google-maps/api';
-import { Trash2, Loader2 } from 'lucide-react';
+import { Trash2, Loader2, MapPin } from 'lucide-react';
 
 const LIBRARIES = ['drawing', 'places'];
 
@@ -45,7 +45,32 @@ export default function RegionSelector({ onRegionSelect }) {
   const [map, setMap] = useState(null);
   const [drawingMode, setDrawingMode] = useState(null);
   const [polygonPath, setPolygonPath] = useState([]);
+  const [center, setCenter] = useState(defaultCenter);
+  const [zoom, setZoom] = useState(5);
+  const [locating, setLocating] = useState(true);
   const polygonRef = useRef(null);
+
+  useEffect(() => {
+    if ("geolocation" in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setCenter({
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+          });
+          setZoom(11); // Zoom in closer since we know their location
+          setLocating(false);
+        },
+        (error) => {
+          console.warn("Geolocation error:", error);
+          setLocating(false);
+        },
+        { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+      );
+    } else {
+      setLocating(false);
+    }
+  }, []);
 
   const onLoad = useCallback(function callback(map) {
     setMap(map);
@@ -86,10 +111,11 @@ export default function RegionSelector({ onRegionSelect }) {
     if (onRegionSelect) onRegionSelect(null);
   };
 
-  if (!isLoaded) {
+  if (!isLoaded || locating) {
     return (
-      <div className="h-full w-full flex items-center justify-center bg-slate-100 rounded-[2rem]">
+      <div className="h-full w-full flex items-center justify-center bg-slate-100 rounded-[2rem] flex-col gap-3">
         <Loader2 className="w-10 h-10 animate-spin text-emerald-500" />
+        {locating && <span className="text-sm font-medium text-slate-500">Locating you...</span>}
       </div>
     );
   }
@@ -98,8 +124,8 @@ export default function RegionSelector({ onRegionSelect }) {
     <div className="relative w-full h-full">
       <GoogleMap
         mapContainerStyle={containerStyle}
-        center={defaultCenter}
-        zoom={5}
+        center={center}
+        zoom={zoom}
         onLoad={onLoad}
         onUnmount={onUnmount}
         options={{

@@ -3,6 +3,12 @@ import { ArrowLeft, AlertTriangle, CheckCircle, Calendar, Layers, TriangleAlert,
 import { useAuth0 } from '@auth0/auth0-react';
 import { useState } from 'react'; 
 import { api } from '../../../lib/api.js';
+import { MapContainer, TileLayer } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
+import { useRegionCenter } from '../../../hooks/useRegionCenter';
+import MapAutoCenter from '../../../components/gee/MapAutoCenter';
+import IntelligenceReportCard from '../../../components/gee/IntelligenceReportCard';
+import CompositeFindingsBanner from '../../../components/gee/CompositeFindingsBanner';
 
 export default function PollutionResult() {
   const location = useLocation();
@@ -12,6 +18,7 @@ export default function PollutionResult() {
   const { data } = location.state || {};
   const result = data?.result;
   const reportRef = result?.reportref;
+  const { center, zoom, bounds } = useRegionCenter(result?.regionGeoJson || data?.regionGeoJson);
   console.log("result",result);
   console.log("reportRef",reportRef);
 
@@ -176,13 +183,32 @@ export default function PollutionResult() {
            <div className="space-y-3 group lg:col-span-2">
              <h3 className="font-bold text-slate-700 flex items-center gap-2 text-sm md:text-base">
                <Layers className="w-4 h-4 text-purple-500" /> 
-               {pollutantCode} Concentration Heatmap
+               {pollutantCode} Live Concentration Map
              </h3>
-             <div className="aspect-video bg-slate-900 rounded-2xl overflow-hidden border border-slate-800 shadow-inner relative flex items-center justify-center p-2">
-                {result.heatmap_url ? (
-                  <img src={result.heatmap_url} alt="Pollution Heatmap" className="w-full h-full object-contain" />
+             <div className="aspect-video rounded-2xl overflow-hidden border border-slate-800 shadow-inner relative"
+                  style={{ minHeight: '350px' }}>
+                {result.tile_url ? (
+                  <MapContainer
+                    center={center}
+                    zoom={zoom}
+                    style={{ width: '100%', height: '100%' }}
+                    zoomControl={true}
+                    scrollWheelZoom={false}
+                  >
+                    <MapAutoCenter bounds={bounds} />
+                   <TileLayer
+                      url="https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}"
+                      attribution="&copy; Google Maps"
+                      maxZoom={20}
+                    />
+                    <TileLayer
+                      url={result.tile_url}
+                      opacity={0.55}
+                      maxZoom={20}
+                    />
+                  </MapContainer>
                 ) : (
-                  <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-500">
+                  <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-500 bg-slate-900">
                     <Wind className="w-12 h-12 mb-2 opacity-20" />
                     <span className="text-sm font-mono">No Heatmap Generated</span>
                     <span className="text-xs opacity-60 mt-1 max-w-xs text-center">{result.message || "Data may be obscured by clouds."}</span>
@@ -216,6 +242,12 @@ export default function PollutionResult() {
            </div>
 
         </div>
+
+        {/* AI Intelligence Report */}
+        <IntelligenceReportCard report={result.intelligence_report} />
+
+        {/* Cross-Module Correlation Findings */}
+        <CompositeFindingsBanner findings={result.composite_findings} />
 
       </main>
     </div>

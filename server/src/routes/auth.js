@@ -1,6 +1,7 @@
 import express from "express";
 import axios from "axios";
 import {db} from "../firebaseadmin/firebaseadmin.js";
+import User from "../models/urbanconnect/userModel.js";
 
 import { checkJwt } from "../auth/authMiddleware.js";
 
@@ -25,7 +26,33 @@ router.post("/sync-user", checkJwt, async (req, res) => {
       }
     );
 
-    // Firestore reference
+    // 1. Sync to MongoDB (UrbanConnect)
+    const email = user.email?.toLowerCase();
+    if (email) {
+      let mongoUser = await User.findOne({ email });
+      const userData = {
+        auth0Id: user.sub,
+        username: user.name || user.nickname || "UrbanFlow User",
+        email: email,
+        avatar: user.picture || null
+      };
+
+      if (!mongoUser) {
+        await User.create(userData);
+        console.log(`[AuthSync] Created new MongoDB user for ${email}`);
+      } else {
+        // Update existing user with latest info from Auth0
+        mongoUser.auth0Id = userData.auth0Id;
+        if (userData.avatar) mongoUser.avatar = userData.avatar;
+        if (userData.username && (!mongoUser.username || mongoUser.username === 'UrbanFlow User')) {
+            mongoUser.username = userData.username;
+        }
+        await mongoUser.save();
+        console.log(`[AuthSync] Updated MongoDB user for ${email}`);
+      }
+    }
+
+    // 2. Firestore reference
     const userRef = db.collection("users").doc(user.sub);
     let doc = await userRef.get();
 

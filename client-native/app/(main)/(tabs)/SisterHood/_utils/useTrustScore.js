@@ -107,7 +107,7 @@ export const useTrustScore = () => {
     };
 
     try {
-      await api.patch('/api/users/sisterhood-exit', payload);
+      await api.patch('/api/user/sisterhood-exit', payload);
       console.log('✅ Trust score flushed to Firestore on exit.');
     } catch (e) {
       console.error('Failed to flush trust score to server:', e.message);

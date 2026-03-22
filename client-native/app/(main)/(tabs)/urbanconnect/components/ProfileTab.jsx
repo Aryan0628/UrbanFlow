@@ -26,7 +26,8 @@ export default function ProfileTab() {
         return;
       }
       try {
-        const res = await api.get(`/api/urbanconnect/profile?email=${encodeURIComponent(user.email)}`);
+        const queryParams = `email=${encodeURIComponent(user.email)}&name=${encodeURIComponent(user.name || '')}&nickname=${encodeURIComponent(user.nickname || '')}&picture=${encodeURIComponent(user.picture || '')}`;
+        const res = await api.get(`/api/urbanconnect/profile?${queryParams}`);
         setProfileData(res.data);
       } catch (err) {
         console.error("Failed to fetch profile data:", err);

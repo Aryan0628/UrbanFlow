@@ -2,7 +2,7 @@
 import React, { useState } from "react";
 import { View, Text, TextInput, TouchableOpacity, Image, ActivityIndicator, Alert, StyleSheet } from "react-native";
 import { launchImageLibraryAsync } from 'expo-image-picker';
-import { UploadCloud, CheckCircle2, Info } from "lucide-react-native";
+import { UploadCloud, CheckCircle2, Info, AlertCircle } from "lucide-react-native";
 import { api } from "../../../lib/api";
 import { useAuth0 } from "react-native-auth0";
 import geohash from "ngeohash";
@@ -102,28 +102,37 @@ export default function ReportForm({ userLocation, userAddress, onSubmitSuccess 
       }
     } catch (error) {
       console.error("Submission Error:", error);
-      Alert.alert("Error", "Failed to submit report. Please try again.");
+      if (error.response?.status === 422 && error.response?.data?.message) {
+        Alert.alert("Report Rejected", error.response.data.message);
+      } else {
+        Alert.alert("Error", "Failed to submit report. Please try again.");
+      }
       setStep("idle");
     }
   };
 
   // SUCCESS UI
   if (step === "submitted") {
+    const isAlreadyReported = serverTool === 'ALREADY_REPORTED';
     const isSave = serverTool === 'SAVE';
     return (
       <View style={styles.successContainer}>
-        <View style={[styles.successIconWrap, isSave ? styles.successIconSave : styles.successIconUpdate]}>
-          {isSave ? (
+        <View style={[styles.successIconWrap, isAlreadyReported ? styles.successIconAlready : isSave ? styles.successIconSave : styles.successIconUpdate]}>
+          {isAlreadyReported ? (
+            <AlertCircle size={48} color="#f59e0b" />
+          ) : isSave ? (
             <CheckCircle2 size={48} color="#10b981" />
           ) : (
             <Info size={48} color="#818cf8" />
           )}
         </View>
         <Text style={styles.successTitle}>
-          {isSave ? 'Report Saved' : 'Update Received'}
+          {isAlreadyReported ? 'Already Reported' : isSave ? 'Report Saved' : 'Update Received'}
         </Text>
         <Text style={styles.successBody}>
-          {isSave
+          {isAlreadyReported
+            ? 'You have already reported this issue. We have it securely on record.'
+            : isSave
             ? 'Our AI agents have analyzed the issue and assigned it for resolution.'
             : 'This issue has already been reported; we have updated the existing record with your input.'}
         </Text>
@@ -266,6 +275,9 @@ const styles = StyleSheet.create({
   },
   successIconUpdate: {
     backgroundColor: 'rgba(99,102,241,0.2)',
+  },
+  successIconAlready: {
+    backgroundColor: 'rgba(245,158,11,0.2)',
   },
   successTitle: {
     fontSize: 24,

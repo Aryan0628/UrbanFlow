@@ -3,6 +3,12 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { ArrowLeft, TriangleAlert, CheckCircle, Calendar, Map, Flame, ThermometerSun, Info, Globe } from 'lucide-react';
 import { useAuth0 } from '@auth0/auth0-react';
 import { api } from '../../../lib/api';
+import { MapContainer, TileLayer } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
+import { useRegionCenter } from '../../../hooks/useRegionCenter';
+import MapAutoCenter from '../../../components/gee/MapAutoCenter';
+import IntelligenceReportCard from '../../../components/gee/IntelligenceReportCard';
+import CompositeFindingsBanner from '../../../components/gee/CompositeFindingsBanner';
 
 export default function SurfaceHeatResult() {
   const [alertset, setAlertset] = useState(false);
@@ -13,6 +19,7 @@ export default function SurfaceHeatResult() {
   const stateData = location.state?.data;
   const result = stateData?.result || stateData;
   const reportRef = result?.reportref;
+  const { center, zoom, bounds } = useRegionCenter(result?.regionGeoJson || stateData?.regionGeoJson);
 
   const handleAlert = async () => {
     try {
@@ -155,15 +162,30 @@ export default function SurfaceHeatResult() {
              </div>
              
              {/* Map Container */}
-             <div className="aspect-square max-w-[500px] mx-auto bg-slate-900 rounded-2xl overflow-hidden border border-slate-200 shadow-inner relative flex items-center justify-center p-4">
-                {result.heatmap_url ? (
-                  <img 
-                    src={result.heatmap_url} 
-                    alt="Thermal Map" 
-                    className="w-full h-full object-contain rounded-lg" 
-                  />
+             <div className="aspect-square max-w-[500px] mx-auto rounded-2xl overflow-hidden border border-slate-200 shadow-inner relative"
+                  style={{ minHeight: '350px' }}>
+                {result.tile_url ? (
+                  <MapContainer
+                    center={center}
+                    zoom={zoom}
+                    style={{ width: '100%', height: '100%' }}
+                    zoomControl={true}
+                    scrollWheelZoom={false}
+                  >
+                    <MapAutoCenter bounds={bounds} />
+                   <TileLayer
+                      url="https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}"
+                      attribution="&copy; Google Maps"
+                      maxZoom={20}
+                    />
+                    <TileLayer
+                      url={result.tile_url}
+                      opacity={0.55}
+                      maxZoom={20}
+                    />
+                  </MapContainer>
                 ) : (
-                  <div className="absolute inset-0 flex items-center justify-center text-slate-400 text-xs">Processing Visual...</div>
+                  <div className="absolute inset-0 flex items-center justify-center text-slate-400 text-xs bg-slate-900">Processing Visual...</div>
                 )}
              </div>
 
@@ -229,6 +251,12 @@ export default function SurfaceHeatResult() {
            </div>
 
         </div>
+
+        {/* AI Intelligence Report */}
+        <IntelligenceReportCard report={result.intelligence_report} />
+
+        {/* Cross-Module Correlation Findings */}
+        <CompositeFindingsBanner findings={result.composite_findings} />
 
       </main>
     </div>

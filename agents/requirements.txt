@@ -13,13 +13,16 @@ langchain-community
 langchain-text-splitters
 langchain-openai
 langchain-google-genai
+google-generativeai
+google-cloud-aiplatform
+openai
 
-# --- Data & Math (from your list) ---
+# --- Data & Math ---
 numpy
 pandas
 pydantic-core
 
-# --- Utilities (from your list) ---
+# --- Utilities ---
 python-dateutil
 pytz
 PyYAML
@@ -27,9 +30,12 @@ regex
 httpx
 typing-extensions
 tiktoken
-#--Tokens---
-jwt
-jose
-python-jose
 Pillow
-google-generativeai
+
+# --- MongoDB (Graph RAG) ---
+motor
+certifi
+
+# --- Security & Auth ---
+python-jose[cryptography]
+PyJWT
