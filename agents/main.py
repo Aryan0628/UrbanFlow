@@ -1,19 +1,26 @@
 import os
 from jose import jwt
 import requests
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional,Any
 from fastapi import FastAPI, HTTPException, Header, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 # --- LANGGRAPH IMPORTS ---
 from brain.resolveWasteAgent import workflow
 from brain.safety_agent import safety_app
+from brain.urbanconnect.orchestrator import civic_analysis_workflow
+from brain.voice_analysis_agent import voice_analysis_app
 from brain.assistant_agent import assistant_app
 
 # [CHANGE 1: Renamed 'app' to 'report_agent' to avoid conflict with FastAPI app]
 from brain.orchestrator import app as report_agent 
 from brain.job_agent import app as job_agent_workflow
+from state import ReportStatus # Importing enums is good practice
+
+
+from brain.urbanconnect.scrapper.orchestrator import fetch_and_analyze_city_pulse_graph
+
 
 app = FastAPI()
 AUTH0_DOMAIN = os.getenv("AUTH0_DOMAIN")  # e.g. dev-xyz.us.auth0.com
@@ -62,6 +69,28 @@ class SafetyAnalysisRequest(BaseModel):
     reportId: str
     description: str
     chatLogs: List[str]
+
+class CivicAnalysisRequest(BaseModel):
+    postId: str
+    title: str
+    description: str
+    imageUrls: List[str] = []
+    city: str = ""
+
+class ClusterSummarizeRequest(BaseModel):
+    clusterId: str
+    postsText: List[str]
+
+class VoiceAnalysisRequest(BaseModel):
+    audioUrl: str
+    alertId: str
+    userId: Optional[str] = ""
+    userName: Optional[str] = ""
+
+class PulseRequest(BaseModel):
+    city: str
+    posts: List[Dict[str, Any]]
+    previous_data: Optional[Dict[str, Any]] = None
 
 def fetch_user_profile(access_token: str):
     url = f"https://{AUTH0_DOMAIN}/userinfo"
@@ -313,6 +342,118 @@ async def process_skill_gap(req: SkillGapRequest):
         print(f"Error in Process Skill Gap Endpoint: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.post("/analyze-post")
+async def analyze_post(req: CivicAnalysisRequest):
+    try:
+        initial_state = {
+            "post_id": req.postId,
+            "title": req.title,
+            "description": req.description,
+            "image_urls": req.imageUrls,
+            "city": req.city
+        }
+
+        final_state = await civic_analysis_workflow.ainvoke(initial_state)
+
+        return {
+            "status": "success",
+            "sentiment": final_state.get("sentiment"),
+            "sentiment_score": final_state.get("sentiment_score"),
+            "urgency": final_state.get("urgency"),
+            "post_type": final_state.get("post_type"),
+            "embedding": final_state.get("embedding"),
+            "cluster_id": final_state.get("cluster_id"),
+            "is_misinformation": final_state.get("is_misinformation"),
+            "context_note": final_state.get("context_note")
+        }
+    except Exception as e:
+        print(f"Error in Civic Analysis Endpoint: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+class ClusterSummaryResult(BaseModel):
+    headline: str = Field(description="A concise 5-word headline summarizing the issue")
+    summary: str = Field(description="A clear 2-sentence summary of the emerging crisis or issue")
+
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_core.messages import HumanMessage
+summarizer_llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash", temperature=0)
+cluster_summary_engine = summarizer_llm.with_structured_output(ClusterSummaryResult)
+
+@app.post("/summarize-cluster")
+async def summarize_cluster(req: ClusterSummarizeRequest):
+    try:
+        combined = "\n".join([f"- {t}" for t in req.postsText])
+        prompt = f"""Analyze these {len(req.postsText)} related civic posts and summarize the emerging issue.
+        
+POSTS:
+{combined}
+
+Generate a concise 5-word headline and a clear 2-sentence summary of the crisis or issue."""
+        result = await cluster_summary_engine.ainvoke([HumanMessage(content=prompt)])
+        return {
+            "status": "success",
+            "headline": result.headline,
+            "summary": result.summary
+        }
+    except Exception as e:
+        print(f"Error in Summarize Cluster Endpoint: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/analyze-voice")
+async def analyze_voice(req: VoiceAnalysisRequest):
+    try:
+        initial_state = {
+            "audio_url": req.audioUrl,
+            "alert_id": req.alertId,
+            "user_id": req.userId or "",
+            "user_name": req.userName or "Unknown",
+        }
+        
+        final_state = await voice_analysis_app.ainvoke(initial_state)
+        result = final_state.get("analysis_result")
+        
+        if result:
+            # Send results back to Node server
+            import httpx
+            backend_url = os.getenv("BACKEND_URL", "http://localhost:3000")
+            async with httpx.AsyncClient(timeout=10) as client:
+                await client.patch(
+                    f"{backend_url}/api/voice/{req.alertId}/analysis",
+                    json={
+                        "transcript": result.transcript,
+                        "urgency": result.urgency,
+                        "summary": result.summary,
+                        "pattern": result.pattern,
+                        "actionItems": result.actionItems,
+                    }
+                )
+        
+        return {
+            "status": "success",
+            "transcript": result.transcript,
+            "urgency": result.urgency,
+            "summary": result.summary,
+            "pattern": result.pattern,
+            "actionItems": result.actionItems,
+        }
+    except Exception as e:
+        print(f"Error in analyze-voice endpoint: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+    
+@app.post("/analyze-pulse")
+async def analyze_pulse_endpoint(req: PulseRequest):
+    try:
+        # Pass the data into your modular graph
+        result = await fetch_and_analyze_city_pulse_graph(
+            city=req.city,
+            posts=req.posts,
+            previous_data=req.previous_data
+        )
+        return result
+    except Exception as e:
+        print(f"Error in City Pulse Endpoint: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 # ─── Assistant v2 (LangGraph) ────────────────────────────
 
 class AssistantChatRequest(BaseModel):
@@ -362,5 +503,5 @@ async def assistant_chat(
 
 if __name__ == "__main__":
     import uvicorn
-    port = int(os.environ.get("PORT", 10000))
+    port = int(os.environ.get("PORT", 8000))
     uvicorn.run(app, host="0.0.0.0", port=port)
