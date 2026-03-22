@@ -7,16 +7,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 # --- LANGGRAPH IMPORTS ---
-from brain.layel_1 import app_graph, FrontendMessage
-from brain.layel_2 import surveillance_agent
-from brain.agent3 import analyze_emergency
 from brain.resolveWasteAgent import workflow
 from brain.safety_agent import safety_app
+from brain.assistant_agent import assistant_app
 
 # [CHANGE 1: Renamed 'app' to 'report_agent' to avoid conflict with FastAPI app]
 from brain.orchestrator import app as report_agent 
 from brain.job_agent import app as job_agent_workflow
-from state import ReportStatus # Importing enums is good practice
 
 app = FastAPI()
 AUTH0_DOMAIN = os.getenv("AUTH0_DOMAIN")  # e.g. dev-xyz.us.auth0.com
@@ -32,19 +29,8 @@ app.add_middleware(
 )
 
 # --- REQUEST SCHEMAS ---
-class ChatRequest(BaseModel):
-    roomId: str
-    messages: List[FrontendMessage]
-    currentUserMessage: str
-    currentUserId: str
-
 class RouteBatchRequest(BaseModel):
     payload: Dict[str, List[float]]
-
-class ThrottleRequest(BaseModel):
-    userId: str
-    routeId: str
-    message: List[FrontendMessage] 
 
 class JobProcessRequest(BaseModel):
     jobId: str
@@ -299,56 +285,6 @@ async def analyze_chat_safety(req: SafetyAnalysisRequest):
         print(f"Error in analyze-safety endpoint: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/agent1")
-async def chat_endpoint(req: ChatRequest):
-    try:
-        initial_state = {
-            "roomId": req.roomId,
-            "messages": req.messages,
-            "currentUserMessage": req.currentUserMessage,
-            "currentUserId": req.currentUserId
-        }
-        config = {"configurable": {"thread_id": req.roomId}}
-        
-        # Invoke the LangGraph agent
-        final_state = await app_graph.ainvoke(initial_state, config=config)
-        decision = final_state["final_model_score"]
-        
-        return {
-            "status": "success",
-            "final_score": decision.final_safety_score,
-            "trigger_sos": decision.trigger_sos, 
-            "sos_context": decision.sos_context,
-            "analysis": decision.reason,
-            "details": {
-                "sentiment": final_state.get("model_1"),
-                "urgency": final_state.get("model_2"),
-                "severity": final_state.get("model_3")
-            }
-        }
-    except Exception as e:
-        print(f"Error in Chat Endpoint: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/throttle")
-async def throttle_push(req: ThrottleRequest):
-    try:
-        initial_state = {
-            "userId": req.userId,
-            "routeId": req.routeId,
-            "message": req.message, 
-            "context": None          
-        }
-        result = await analyze_emergency.ainvoke(initial_state)  
-        final_msg = result.get("context", "No analysis generated")
-        
-        return {
-            "status": "Emergency Marked",
-            "ai_analysis": final_msg
-        }
-    except Exception as e:
-        print(f"Error in throttle agent: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
 
 class SkillGapRequest(BaseModel):
     questions: List[str]
@@ -376,6 +312,53 @@ async def process_skill_gap(req: SkillGapRequest):
     except Exception as e:
         print(f"Error in Process Skill Gap Endpoint: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+# ─── Assistant v2 (LangGraph) ────────────────────────────
+
+class AssistantChatRequest(BaseModel):
+    text: str
+    sessionId: Optional[str] = None
+    messages: Optional[List[Dict]] = None
+
+
+@app.post("/assistant-chat")
+async def assistant_chat(
+    req: AssistantChatRequest,
+    user_info: dict = Depends(get_user_from_token),
+    authorization: str = Header(...),
+):
+    try:
+        user_id = user_info["userId"]
+        token = authorization.split(" ")[1] if authorization.startswith("Bearer ") else ""
+
+        # Build conversation history
+        history = req.messages or []
+
+        initial_state = {
+            "user_id": user_id,
+            "session_id": req.sessionId or user_id,
+            "current_message": req.text,
+            "messages": history,
+            "tool_calls": None,
+            "tool_results": None,
+            "proactive_updates": None,
+            "last_seen_context": None,
+            "response": "",
+            "action": None,
+            "_token": token,
+        }
+
+        result = await assistant_app.ainvoke(initial_state)
+
+        return {
+            "reply": result.get("response", "Sorry, I couldn't process that."),
+            "action": result.get("action"),
+            "proactiveUpdates": bool(result.get("proactive_updates")),
+        }
+    except Exception as e:
+        print(f"[AssistantV2] Error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 if __name__ == "__main__":
     import uvicorn
