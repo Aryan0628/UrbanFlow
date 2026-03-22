@@ -1,9 +1,9 @@
 import os
 import certifi
 os.environ["SSL_CERT_FILE"] = certifi.where()
-from typing import TypedDict, Annotated, Sequence, Any, List
+from typing import TypedDict, List
 from langgraph.graph import StateGraph, END
-from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
+from langchain_core.messages import HumanMessage
 from langchain_google_genai import ChatGoogleGenerativeAI
 from pydantic import BaseModel, Field
 from dotenv import load_dotenv

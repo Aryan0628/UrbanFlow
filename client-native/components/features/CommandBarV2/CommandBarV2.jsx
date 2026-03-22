@@ -16,11 +16,11 @@ import {
   Bot,
   User,
   ChevronRight,
-  Sparkles,
+  Brain,
 } from "lucide-react-native";
 import { Audio } from "expo-av";
 import { ExpoSpeechRecognitionModule, useSpeechRecognitionEvent } from "expo-speech-recognition";
-import { useCommandStore } from "../../../store/useCommandStore";
+import { useAgentStore } from "../../../store/useAgentStore";
 import { performAction } from "../../../lib/commandExecutor";
 import { api } from "../../../lib/api";
 
@@ -29,6 +29,8 @@ const { height: SCREEN_H } = Dimensions.get("window");
 // ── Message Bubble ────────────────────────────────
 function MessageBubble({ message, onActionPress }) {
   const isUser = message.role === "user";
+  // Don't show __session_start__ messages in UI
+  if (isUser && message.text === "__session_start__") return null;
 
   return (
     <View
@@ -51,23 +53,23 @@ function MessageBubble({ message, onActionPress }) {
             height: 28,
             borderRadius: 14,
             backgroundColor: isUser
-              ? "rgba(59,130,246,0.2)"
-              : "rgba(129,140,248,0.2)",
+              ? "rgba(16,185,129,0.2)"
+              : "rgba(34,211,238,0.2)",
             alignItems: "center",
             justifyContent: "center",
           }}
         >
           {isUser ? (
-            <User size={14} color="#60a5fa" />
+            <User size={14} color="#34d399" />
           ) : (
-            <Bot size={14} color="#818cf8" />
+            <Brain size={14} color="#22d3ee" />
           )}
         </View>
 
         <View
           style={{
             backgroundColor: isUser
-              ? "rgba(59,130,246,0.15)"
+              ? "rgba(16,185,129,0.15)"
               : "rgba(255,255,255,0.06)",
             borderRadius: 16,
             borderTopRightRadius: isUser ? 4 : 16,
@@ -76,13 +78,13 @@ function MessageBubble({ message, onActionPress }) {
             paddingVertical: 10,
             borderWidth: 1,
             borderColor: isUser
-              ? "rgba(59,130,246,0.2)"
+              ? "rgba(16,185,129,0.2)"
               : "rgba(255,255,255,0.08)",
           }}
         >
           <Text
             style={{
-              color: isUser ? "#93c5fd" : "#e4e4e7",
+              color: isUser ? "#6ee7b7" : "#e4e4e7",
               fontSize: 14,
               lineHeight: 20,
             }}
@@ -120,8 +122,8 @@ function MessageBubble({ message, onActionPress }) {
   );
 }
 
-// ── Main CommandBar Component ─────────────────────
-export default function CommandBar() {
+// ── Main CommandBarV2 Component ────────────────────
+export default function CommandBarV2() {
   const {
     isOpen,
     messages,
@@ -129,12 +131,13 @@ export default function CommandBar() {
     open,
     close,
     sendMessage,
+    checkUpdates,
     reset,
-  } = useCommandStore();
+  } = useAgentStore();
 
   const [isListening, setIsListening] = useState(false);
   const [interimText, setInterimText] = useState("");
-  
+
   const scrollRef = useRef(null);
   const fabScale = useRef(new Animated.Value(1)).current;
   const pulseAnim = useRef(new Animated.Value(0)).current;
@@ -172,7 +175,7 @@ export default function CommandBar() {
         }
       });
     } catch (err) {
-      console.warn("[TTS] Playback failed, falling back silent:", err.message);
+      console.warn("[TTS] Playback failed:", err.message);
     }
   };
 
@@ -226,12 +229,13 @@ export default function CommandBar() {
     }
   }, [messages.length, interimText]);
 
-  // Greeting & Stop Voice on Close
+  // Greeting & Proactive Updates on Open
   useEffect(() => {
     if (isOpen) {
       if (!hasGreeted.current && messages.length === 0) {
         hasGreeted.current = true;
-        playTTS("Hi! I can help you track reports, post jobs, check notifications, and more. What would you like to do?");
+        // Trigger proactive updates check
+        checkUpdates();
       }
     } else {
       stopTTS();
@@ -243,7 +247,7 @@ export default function CommandBar() {
     }
   }, [isOpen]);
 
-  // Speak Assistant Messages
+  // Speak Assistant Messages via TTS
   useEffect(() => {
     if (isOpen && messages.length > 0) {
       const lastMsg = messages[messages.length - 1];
@@ -283,7 +287,7 @@ export default function CommandBar() {
 
   useSpeechRecognitionEvent("error", (e) => {
     if (!e.error?.includes("no-match") && !e.error?.includes("no-speech")) {
-        console.warn("Speech recognition error:", e);
+      console.warn("Speech recognition error:", e);
     }
     setIsListening(false);
     setInterimText("");
@@ -295,7 +299,7 @@ export default function CommandBar() {
       ExpoSpeechRecognitionModule.stop();
       setIsListening(false);
     } else {
-      stopTTS(); // Stop ongoing assistant speech
+      stopTTS();
       setInterimText("");
       try {
         const perms = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
@@ -326,12 +330,12 @@ export default function CommandBar() {
 
   return (
     <>
-      {/* ── FAB Button ── */}
+      {/* ── FAB Button (V2 — Green/Teal, positioned above V1) ── */}
       {!isOpen && (
         <Animated.View
           style={{
             position: "absolute",
-            bottom: 100,
+            bottom: 164,
             right: 20,
             zIndex: 999,
             transform: [{ scale: fabPulseScale }],
@@ -356,17 +360,17 @@ export default function CommandBar() {
               width: 56,
               height: 56,
               borderRadius: 28,
-              backgroundColor: "#818cf8",
+              backgroundColor: "#10b981",
               justifyContent: "center",
               alignItems: "center",
-              shadowColor: "#818cf8",
+              shadowColor: "#10b981",
               shadowOffset: { width: 0, height: 4 },
               shadowOpacity: 0.4,
               shadowRadius: 12,
               elevation: 10,
             }}
           >
-            <Sparkles size={24} color="#fff" />
+            <Brain size={24} color="#fff" />
           </TouchableOpacity>
         </Animated.View>
       )}
@@ -397,7 +401,7 @@ export default function CommandBar() {
             maxHeight: SCREEN_H * 0.75,
             minHeight: SCREEN_H * 0.5,
             borderTopWidth: 1,
-            borderColor: "rgba(255,255,255,0.08)",
+            borderColor: "rgba(16,185,129,0.15)",
           }}
         >
           {/* Header */}
@@ -421,23 +425,23 @@ export default function CommandBar() {
                   width: 32,
                   height: 32,
                   borderRadius: 16,
-                  backgroundColor: "rgba(129,140,248,0.15)",
+                  backgroundColor: "rgba(16,185,129,0.15)",
                   justifyContent: "center",
                   alignItems: "center",
                 }}
               >
-                <Sparkles size={16} color="#818cf8" />
+                <Brain size={16} color="#10b981" />
               </View>
               <View>
                 <Text
                   style={{ color: "#fff", fontSize: 16, fontWeight: "800" }}
                 >
-                  UrbanFlow Voice
+                  UrbanFlow Agent
                 </Text>
                 <Text
                   style={{ color: "#71717a", fontSize: 11, fontWeight: "500" }}
                 >
-                  Talk to me
+                  AI-powered • Remembers context
                 </Text>
               </View>
             </View>
@@ -490,20 +494,20 @@ export default function CommandBar() {
             }}
             showsVerticalScrollIndicator={false}
           >
-            {messages.length === 0 ? (
+            {messages.filter(m => !(m.role === "user" && m.text === "__session_start__")).length === 0 ? (
               <View style={{ alignItems: "center", marginTop: 40 }}>
                 <View
                   style={{
                     width: 64,
                     height: 64,
                     borderRadius: 32,
-                    backgroundColor: "rgba(129,140,248,0.1)",
+                    backgroundColor: "rgba(16,185,129,0.1)",
                     justifyContent: "center",
                     alignItems: "center",
                     marginBottom: 16,
                   }}
                 >
-                  <Bot size={32} color="#818cf8" />
+                  <Brain size={32} color="#10b981" />
                 </View>
                 <Text
                   style={{
@@ -513,7 +517,7 @@ export default function CommandBar() {
                     marginBottom: 8,
                   }}
                 >
-                  I'm listening...
+                  Agent Ready
                 </Text>
                 <Text
                   style={{
@@ -523,7 +527,7 @@ export default function CommandBar() {
                     paddingHorizontal: 20,
                   }}
                 >
-                  Tap the microphone below and tell me what you need.
+                  I remember your history and can proactively update you. Tap the mic to start.
                 </Text>
               </View>
             ) : (
@@ -536,7 +540,7 @@ export default function CommandBar() {
               ))
             )}
 
-            {/* Interim Text (what user is currently saying) */}
+            {/* Interim Text */}
             {interimText ? (
               <View
                 style={{
@@ -548,19 +552,19 @@ export default function CommandBar() {
               >
                 <View
                   style={{
-                    backgroundColor: "rgba(59,130,246,0.1)",
+                    backgroundColor: "rgba(16,185,129,0.1)",
                     borderRadius: 16,
                     borderTopRightRadius: 4,
                     borderTopLeftRadius: 16,
                     paddingHorizontal: 14,
                     paddingVertical: 10,
                     borderWidth: 1,
-                    borderColor: "rgba(59,130,246,0.2)",
+                    borderColor: "rgba(16,185,129,0.2)",
                   }}
                 >
                   <Text
                     style={{
-                      color: "#93c5fd",
+                      color: "#6ee7b7",
                       fontSize: 14,
                       lineHeight: 20,
                       fontStyle: "italic",
@@ -582,7 +586,7 @@ export default function CommandBar() {
                   marginLeft: 36,
                 }}
               >
-                <ActivityIndicator size="small" color="#818cf8" />
+                <ActivityIndicator size="small" color="#10b981" />
                 <Text
                   style={{
                     color: "#71717a",
@@ -590,13 +594,13 @@ export default function CommandBar() {
                     fontWeight: "500",
                   }}
                 >
-                  Thinking...
+                  Agent thinking...
                 </Text>
               </View>
             )}
           </ScrollView>
 
-          {/* Voice Command Area (No Text Input) */}
+          {/* Voice Command Area */}
           <View
             style={{
               paddingHorizontal: 20,
@@ -622,17 +626,17 @@ export default function CommandBar() {
                     ? "rgba(239,68,68,0.15)"
                     : isProcessing
                     ? "rgba(255,255,255,0.05)"
-                    : "rgba(129,140,248,0.15)",
+                    : "rgba(16,185,129,0.15)",
                   borderWidth: 2,
                   borderColor: isListening
                     ? "#ef4444"
                     : isProcessing
                     ? "rgba(255,255,255,0.1)"
-                    : "#818cf8",
+                    : "#10b981",
                   justifyContent: "center",
                   alignItems: "center",
                   transform: [{ scale: micPulseAnim }],
-                  shadowColor: isListening ? "#ef4444" : "#818cf8",
+                  shadowColor: isListening ? "#ef4444" : "#10b981",
                   shadowOffset: { width: 0, height: 0 },
                   shadowOpacity: isListening ? 0.6 : 0,
                   shadowRadius: 15,
@@ -642,7 +646,7 @@ export default function CommandBar() {
                 {isProcessing ? (
                   <ActivityIndicator size="large" color="#a1a1aa" />
                 ) : (
-                  <Mic size={32} color={isListening ? "#ef4444" : "#818cf8"} />
+                  <Mic size={32} color={isListening ? "#ef4444" : "#10b981"} />
                 )}
               </Animated.View>
             </TouchableOpacity>

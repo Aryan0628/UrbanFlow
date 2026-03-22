@@ -8,12 +8,12 @@ import { db } from "../../firebaseadmin/firebaseadmin.js";
  */
 
 const JOB_CATEGORIES = [
-  "Movers","Carpenter","Plumber","Electrician","Masonry","Cleaners",
-  "Painters","Mechanic","Gardening","AC Repair","Tech Support","Tailor",
-  "Beauty & Salon","Delivery","Photography","House Sitting",
-  "Civil Work","Flooring","Roofing","Welding","Scaffolding",
-  "Security","Janitorial Services","Maintenance","BMS Operator",
-  "Pest Control","Deep Cleaning","Home Renovation","Appliance Repair","Interior Design",
+  "Movers", "Carpenter", "Plumber", "Electrician", "Masonry", "Cleaners",
+  "Painters", "Mechanic", "Gardening", "AC Repair", "Tech Support", "Tailor",
+  "Beauty & Salon", "Delivery", "Photography", "House Sitting",
+  "Civil Work", "Flooring", "Roofing", "Welding", "Scaffolding",
+  "Security", "Janitorial Services", "Maintenance", "BMS Operator",
+  "Pest Control", "Deep Cleaning", "Home Renovation", "Appliance Repair", "Interior Design",
 ].sort();
 
 const TIME_SLOTS = [
@@ -21,9 +21,6 @@ const TIME_SLOTS = [
   "Full Day (8 hrs)", "Next 24 Hours", "Flexible",
 ];
 
-/**
- * Execute a server-side action for a given intent.
- */
 export async function executeServerAction(intent, params = {}) {
   const handler = actionHandlers[intent] || actionHandlers.unknown;
   try {
@@ -35,18 +32,54 @@ export async function executeServerAction(intent, params = {}) {
 }
 
 const actionHandlers = {
-  // ─── Track Report ─────────────────────────────
+
   track_report: async ({ entities, collectedData, userId }) => {
     const reportId = entities?.reportId || collectedData?.reportId;
 
+
     if (!reportId) {
-      return {
-        followUp: "Sure! What's your report ID? You can find it in your reports list.",
-        intent: "track_report",
-        collectedData: {},
-      };
+      try {
+        const snapshot = await db.collectionGroup("userReports")
+          .where("userId", "==", userId)
+          .orderBy("createdAt", "desc")
+          .limit(5)
+          .get();
+
+        if (snapshot.empty) {
+          return {
+            reply: "You have no reports yet. File a complaint via CivicConnect to get started!",
+            action: { type: "navigate", path: "/(main)/(tabs)/CivicConnect" },
+          };
+        }
+
+        const reports = snapshot.docs.map((doc) => {
+          const d = doc.data();
+          return { id: d.id, title: d.title || "Untitled Report", status: d.status || "PENDING" };
+        });
+
+        const list = reports
+          .map((r, i) => `${i + 1}. ${r.title} — ${r.status}`)
+          .join("\n");
+
+        return {
+          followUp:
+            `Your Recent Reports:\n\n${list}\n\n` +
+            `Pick a number to track, or type a report ID directly.`,
+          options: reports.map((r, i) => `${i + 1}. ${r.title}`),
+          intent: "track_report",
+          collectedData: { _reportsList: reports },
+        };
+      } catch (err) {
+        console.error("[Track] Fetch reports error:", err);
+        return {
+          followUp: "Could not load your reports. Please type your report ID directly.",
+          intent: "track_report",
+          collectedData: {},
+        };
+      }
     }
 
+    // reportId is available — fetch the full report
     try {
       const snapshot = await db.collectionGroup("userReports")
         .where("id", "==", reportId)
@@ -54,14 +87,14 @@ const actionHandlers = {
         .get();
 
       if (snapshot.empty) {
-        return { reply: `❌ Report "${reportId}" not found. Please check the ID.` };
+        return { reply: `Report "${reportId}" not found. Please check the ID.` };
       }
 
       const report = snapshot.docs[0].data();
       return {
         reply:
-          `📋 **${report.title || "Report"}**\n\n` +
-          `• Status: **${report.status}**\n` +
+          `${report.title || "Report"}\n\n` +
+          `• Status: ${report.status}\n` +
           `• Severity: ${report.severity || "N/A"}\n` +
           `${report.address ? `• Location: ${report.address}\n` : ""}` +
           `\nTap "Open" to see the full timeline.`,
@@ -70,7 +103,7 @@ const actionHandlers = {
       };
     } catch (err) {
       console.error("[Track] Error:", err);
-      return { reply: "❌ Could not fetch report details. Please try again." };
+      return { reply: "Could not fetch report details. Please try again." };
     }
   },
 
@@ -142,7 +175,7 @@ const actionHandlers = {
 
       return {
         reply:
-          `✅ **Job posted!**\n\n` +
+          `Job posted!\n\n` +
           `• Category: ${data.category}\n` +
           `• Budget: ₹${amount}\n` +
           `• Duration: ${data.time}\n\n` +
@@ -152,7 +185,7 @@ const actionHandlers = {
       };
     } catch (err) {
       console.error("[PostJob] Error:", err);
-      return { reply: "❌ Failed to post the job. Please try again." };
+      return { reply: "Failed to post the job. Please try again." };
     }
   },
 
@@ -171,15 +204,15 @@ const actionHandlers = {
 
       const jobs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
       const list = jobs
-        .map((j, i) => `${i + 1}. **${j.category}** — ₹${j.amount} (${j.status})`)
+        .map((j, i) => `${i + 1}. ${j.category} — ₹${j.amount} (${j.status})`)
         .join("\n");
 
       return {
-        reply: `📋 **Your Jobs** (showing latest ${jobs.length})\n\n${list}`,
+        reply: `Your Jobs (showing latest ${jobs.length})\n\n${list}`,
         action: { type: "navigate", path: "/(main)/(tabs)/StreetGig" },
       };
     } catch (err) {
-      return { reply: "❌ Could not fetch your jobs." };
+      return { reply: "Could not fetch your jobs." };
     }
   },
 
@@ -196,7 +229,7 @@ const actionHandlers = {
       const unread = snap.docs.map((d) => d.data());
 
       if (unread.length === 0) {
-        return { reply: "🔔 All caught up! No unread notifications." };
+        return { reply: "All caught up! No unread notifications." };
       }
 
       const list = unread
@@ -204,11 +237,11 @@ const actionHandlers = {
         .join("\n");
 
       return {
-        reply: `🔔 **${unread.length} unread notifications**\n\n${list}`,
+        reply: `${unread.length} unread notifications\n\n${list}`,
         action: { type: "open_notifications" },
       };
     } catch (err) {
-      return { reply: "🔔 Tap the bell icon on the dashboard to see notifications." };
+      return { reply: "Tap the bell icon on the dashboard to see notifications." };
     }
   },
 
@@ -216,46 +249,46 @@ const actionHandlers = {
   show_profile: async ({ userId }) => {
     try {
       const snap = await db.collection("users").doc(userId).get();
-      if (!snap.exists) return { reply: "❌ Profile not found." };
+      if (!snap.exists) return { reply: "Profile not found." };
 
       const p = snap.data();
       return {
         reply:
           `👤 **${p.name || "User"}**\n` +
           `• Email: ${p.email || "N/A"}\n` +
-          `• Worker: ${p.interestedToWork ? "✅ Active" : "❌ Inactive"}\n` +
+          `• Worker: ${p.interestedToWork ? "Active" : "Inactive"}\n` +
           (p.workerCategories?.length ? `• Skills: ${p.workerCategories.join(", ")}\n` : "") +
-          (p.rating ? `• Rating: ⭐ ${p.rating}\n` : "") +
+          (p.rating ? `• Rating:  ${p.rating}\n` : "") +
           (p.completedJobs ? `• Completed Jobs: ${p.completedJobs}\n` : ""),
       };
     } catch (err) {
-      return { reply: "❌ Could not load your profile." };
+      return { reply: " Could not load your profile." };
     }
   },
 
   // ─── Navigation intents (simple responses) ────
   file_complaint: async () => ({
-    reply: "Opening **CivicConnect** for you. You can file a grievance report there.",
+    reply: "Opening CivicConnect for you. You can file a grievance report there.",
     action: { type: "navigate", path: "/(main)/(tabs)/CivicConnect" },
   }),
 
   navigate_streetgig: async () => ({
-    reply: "Opening **StreetGig** — your local gig marketplace.",
+    reply: "Opening StreetGig — your local gig marketplace.",
     action: { type: "navigate", path: "/(main)/(tabs)/StreetGig" },
   }),
 
   navigate_sisterhood: async () => ({
-    reply: "Opening **SisterHood** — AI-powered safety navigation.",
+    reply: "Opening SisterHood — AI-powered safety navigation.",
     action: { type: "navigate", path: "/(main)/(tabs)/SisterHood" },
   }),
 
   navigate_kindshare: async () => ({
-    reply: "Opening **KindShare** — connect with NGOs.",
+    reply: "Opening KindShare — connect with NGOs.",
     action: { type: "navigate", path: "/kindshare" },
   }),
 
   learning_schemes: async () => ({
-    reply: "Opening your personalized **Learning Schemes** recommendations.",
+    reply: "Opening your personalized Learning Schemes recommendations.",
     action: { type: "navigate", path: "/(main)/(tabs)/StreetGig" },
   }),
 
@@ -264,20 +297,21 @@ const actionHandlers = {
   }),
 
   fire_sos: async () => ({
-    reply: "🚨 For fire emergencies, please use the **SOS button** on the dashboard header. It requires GPS confirmation for safety and immediately notifies rescue services.",
+    reply: "For fire emergencies, please use the SOS button on the dashboard header. It requires GPS confirmation for safety and immediately notifies rescue services.",
     action: { type: "highlight_sos" },
   }),
 
-  // ─── Unknown ──────────────────────────────────
+
   unknown: async ({ text }) => ({
     reply:
       `I'm not sure what you mean. Here's what I can help with:\n\n` +
-      `• **Track my report** — Check report status\n` +
-      `• **Post a job** — Create a StreetGig listing\n` +
-      `• **My jobs** — View your posted jobs\n` +
-      `• **Notifications** — Check alerts\n` +
-      `• **File complaint** — Open CivicConnect\n` +
-      `• **My profile** — View your info\n` +
-      `• **Learning schemes** — Course recommendations`,
+      `• Track my report — Check report status\n` +
+      `• Post a job — Create a StreetGig listing\n` +
+      `• My jobs — View your posted jobs\n` +
+      `• Notifications — Check alerts\n` +
+      `• File complaint — Open CivicConnect\n` +
+      `• My profile — View your info\n` +
+      `• Learning schemes
+       — Course recommendations`,
   }),
 };

@@ -1,4 +1,3 @@
-import json
 from langchain_core.messages import SystemMessage, HumanMessage
 from pydantic import BaseModel, Field
 from langchain_core.output_parsers import PydanticOutputParser

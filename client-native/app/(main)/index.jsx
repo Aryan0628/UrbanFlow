@@ -26,6 +26,7 @@ import {
   CloudRain, Snowflake, Users,
 } from 'lucide-react-native';
 import CommandBar from '../../components/features/CommandBar/CommandBar';
+import CommandBarV2 from '../../components/features/CommandBarV2/CommandBarV2';
 
 // ─── Distance helper ──────────────────────────────────────────────
 const getDistanceInMeters = (lat1, lon1, lat2, lon2) => {
@@ -894,6 +895,7 @@ export default function Dashboard() {
 
       {/* ── AI Command Assistant ── */}
       <CommandBar />
+      <CommandBarV2 />
     </View>
   );
 }

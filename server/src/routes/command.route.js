@@ -1,6 +1,7 @@
 import express from "express";
 import { checkJwt } from "../auth/authMiddleware.js";
 import { processCommand } from "../controllers/command/command.controller.js";
+import { synthesizeSpeech } from "../controllers/command/ttsController.js";
 
 const router = express.Router();
 
@@ -18,5 +19,14 @@ const router = express.Router();
  * }
  */
 router.post("/process", checkJwt, processCommand);
+
+/**
+ * POST /api/command/tts
+ * 
+ * Synthesizes text to speech using Google Cloud TTS (Neural2 voice).
+ * Body: { text: string }
+ * Response: { audioBase64: string }
+ */
+router.post("/tts", checkJwt, synthesizeSpeech);
 
 export default router;

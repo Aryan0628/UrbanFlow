@@ -64,7 +64,7 @@ RESPONSE FORMAT:
  */
 async function classifyIntent(text, conversationHistory, pendingIntent, collectedData) {
   const model = vertex_ai.getGenerativeModel({
-    model: "gemini-2.0-flash",
+    model: "gemini-2.5-pro",
     generationConfig: {
       responseMimeType: "application/json",
       temperature: 0,
@@ -139,6 +139,39 @@ export const processCommand = async (req, res) => {
         else if (!mergedData.time) mergedData.time = text.trim();
         else if (!mergedData.description) mergedData.description = text.trim();
       }
+    }
+
+    // For track_report: resolve reportId from list selection or raw text
+    if (pendingIntent === "track_report" && !mergedData.reportId) {
+      const cleaned = text.trim();
+      const reportsList = mergedData._reportsList || collectedData?._reportsList;
+
+      if (reportsList && reportsList.length > 0) {
+        // Try to match by number (e.g. "1", "2", "3. Title...")
+        const numMatch = cleaned.match(/^(\d+)/);
+        if (numMatch) {
+          const idx = parseInt(numMatch[1], 10) - 1;
+          if (idx >= 0 && idx < reportsList.length) {
+            mergedData.reportId = reportsList[idx].id;
+          }
+        }
+
+        // If still no match, try to match by title
+        if (!mergedData.reportId) {
+          const found = reportsList.find(
+            (r) => cleaned.toLowerCase().includes(r.title.toLowerCase())
+          );
+          if (found) mergedData.reportId = found.id;
+        }
+      }
+
+      // Fallback: treat raw text as a report ID if long enough
+      if (!mergedData.reportId && cleaned.length >= 4) {
+        mergedData.reportId = cleaned;
+      }
+
+      // Clean up internal list data before passing to handler
+      delete mergedData._reportsList;
     }
 
     // 3. Execute the action
