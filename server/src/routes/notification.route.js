@@ -1,5 +1,5 @@
 import express from "express";
-import { db } from "../firebaseadmin/firebaseadmin.js"; 
+import { db } from "../firebaseadmin/firebaseAdmin.js"; 
 import { pushNotificationToUser } from "../utils/pushNotification.js";
 import { checkJwt } from "../auth/authMiddleware.js";
 

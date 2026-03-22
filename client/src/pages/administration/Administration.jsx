@@ -96,15 +96,7 @@ export default function CityAdminHub() {
       theme: "indigo",
       specialAction: true 
     },
-    {
-      id: "safety",
-      title: "Women Safety",
-      description: "Real-time distress monitoring, SOS tracking, and safe route AI.",
-      icon: ShieldCheck,
-      route: "/administration/womenSafety",
-      theme: "rose",
-      specialAction: false
-    },
+    
     {
       id: "ai-safety",
       title: "AI Safety Audits",
@@ -386,34 +378,6 @@ export default function CityAdminHub() {
             </div>
           </div>
           
-          {/* Footer Stats Area */}
-          <div className="mt-12 bg-slate-900 rounded-[2rem] p-8 flex flex-col md:flex-row items-center justify-between text-slate-400 relative overflow-hidden">
-             <div className="relative z-10 flex items-center gap-4 mb-6 md:mb-0">
-                <div className="w-12 h-12 rounded-full bg-slate-800 flex items-center justify-center text-emerald-400">
-                   <Activity className="w-6 h-6" />
-                </div>
-                <div>
-                  <h4 className="text-white font-bold text-lg">System Status</h4>
-                  <p className="text-xs font-medium opacity-60">All modules operational</p>
-                </div>
-             </div>
-             <div className="relative z-10 flex gap-8 text-center">
-                <div>
-                   <div className="text-2xl font-black text-white">{totalDepartmentAlerts}</div>
-                   <div className="text-[10px] uppercase tracking-wider font-bold">Active Alerts</div>
-                </div>
-                <div>
-                   <div className="text-2xl font-black text-white">{complaintCount}</div>
-                   <div className="text-[10px] uppercase tracking-wider font-bold">Public Complaints</div>
-                </div>
-                <div>
-                   <div className="text-2xl font-black text-emerald-400">98%</div>
-                   <div className="text-[10px] uppercase tracking-wider font-bold">Uptime</div>
-                </div>
-             </div>
-             {/* Decorative Background */}
-             <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-600/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
-          </div>
 
         </div>
       </div>

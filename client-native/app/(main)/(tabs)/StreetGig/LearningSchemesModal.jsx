@@ -40,7 +40,7 @@ export default function LearningSchemesModal({ visible, onClose }) {
 
   const fetchSchemes = async () => {
     try {
-      const res = await api.get('/api/user/learning-schemes');
+      const res = await api.get('/api/user/learning-schemes-graph');
       if (res.data?.success) {
          setSchemesData({
            upgradationCourses: res.data.upgradationCourses || [],

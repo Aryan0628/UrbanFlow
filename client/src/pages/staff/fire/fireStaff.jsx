@@ -565,7 +565,16 @@ export default function FireStaffDashboard() {
               <div className="flex gap-4 mb-5">
                 <div className="w-20 h-20 rounded-2xl bg-slate-100 overflow-hidden relative shrink-0">
                   {task.image ? (
-                    <img src={task.image} className="w-full h-full object-cover" alt="Scene" />
+                    <img 
+                      src={task.image} 
+                      className="w-full h-full object-cover" 
+                      alt="Scene"
+                      referrerPolicy="no-referrer"
+                      onError={(e) => { 
+                        e.target.style.display = 'none'; 
+                        e.target.parentElement.innerHTML = '<div class="flex items-center justify-center h-full w-full"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6 text-slate-300"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"></path><circle cx="12" cy="13" r="3"></circle></svg></div>';
+                      }} 
+                    />
                   ) : (
                     <div className="flex items-center justify-center h-full w-full">
                       <Camera className="w-6 h-6 text-slate-300"/>
@@ -576,7 +585,11 @@ export default function FireStaffDashboard() {
                   <h3 className="font-bold text-slate-900 text-lg leading-tight mb-1">{task.title}</h3>
                   <div className="flex items-start gap-1.5 text-slate-500 text-xs mb-2">
                     <MapPin className="w-3.5 h-3.5 shrink-0 mt-0.5 text-slate-400" /> 
-                    <span className="line-clamp-2 leading-relaxed">{task.location?.address}</span>
+                    <span className="line-clamp-2 leading-relaxed">
+                      {["GPS Coordinates", "Fetching...", "Recorded Location"].includes(task.location?.address) && task.location?.lat 
+                        ? `${task.location.lat.toFixed(5)}, ${task.location.lng.toFixed(5)}` 
+                        : (task.location?.address || "Unknown Location")}
+                    </span>
                   </div>
                   <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-orange-50 text-orange-700 text-[10px] font-bold uppercase tracking-wide">
                     <Clock className="w-3 h-3" />

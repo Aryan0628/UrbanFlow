@@ -1,5 +1,6 @@
 import { db } from "../../firebaseadmin/firebaseadmin.js";
 import admin from 'firebase-admin';
+import { syncReportStatus } from "../../services/syncReportStatus.js";
 
 export const trackReport = async (req, res) => {
   try {
@@ -48,6 +49,7 @@ export const confirmResolution = async (req, res) => {
         status: 'RESOLVED', // Matches your timeline step status
         updatedAt: admin.firestore.FieldValue.serverTimestamp()
       });
+      syncReportStatus(reportId, 'RESOLVED');
     }
 
     res.status(200).json({ success: true, message: "Issue closed successfully" });
@@ -84,6 +86,7 @@ export const rejectResolution = async (req, res) => {
         proofImageUrl: admin.firestore.FieldValue.delete(), 
         updatedAt: admin.firestore.FieldValue.serverTimestamp()
       });
+      syncReportStatus(reportId, 'ASSIGNED');
     }
 
     res.status(200).json({ message: "Task returned to staff for rework" });

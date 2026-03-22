@@ -18,7 +18,9 @@ import { FireReport } from "../controllers/saveReports/saveFireReport.js"
 import {FetchAdminFireHistory} from "../controllers/saveReports/fetchAdminFireHistory.js"
 import { fetchReportCount } from "../controllers/administration/fetchReportCount.js"
 import { fetchSafetyReports } from "../controllers/administration/fetchSafetyReports.js"
+import { fireAutoDispatch } from "../controllers/aiReports/fireAutoDispatch.js"
 
+router.post('/fireAutoDispatch', fireAutoDispatch)
 router.get('/safety-reports', fetchSafetyReports)
 router.post('/waterReports',saveWaterReport)
 router.post('/wasteReports',saveWasteReport)

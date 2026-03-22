@@ -102,7 +102,8 @@ def check_deforestation(region_geometry, threshold, lookback_days):
                  "threshold": threshold,
                  "start_image_url": None,     
                  "end_image_url": None,       
-                 "change_image_url": None,     
+                 "change_image_url": None,
+                 "tile_url": None,
                  "dates": date_info            
              }
 
@@ -126,6 +127,18 @@ def check_deforestation(region_geometry, threshold, lookback_days):
         change_url = get_thumbnail_url(severity_layer, region_geometry, vis_loss)
         # --- END MODIFIED SECTION ---
 
+        # --- TILE URL FOR INTERACTIVE MAP ---
+        try:
+            map_id = severity_layer.getMapId({
+                'min': -0.6,
+                'max': threshold,
+                'palette': ['300000', '8b0000', 'ff0000', 'ff8c00']
+            })
+            tile_url = map_id['tile_fetcher'].url_format
+        except Exception as e:
+            print(f"WARNING: getMapId failed: {e}", file=sys.stderr)
+            tile_url = None
+
         return {
             "status": "success",
             "message": "Analysis successful",  
@@ -135,6 +148,7 @@ def check_deforestation(region_geometry, threshold, lookback_days):
             "start_image_url": start_url,
             "end_image_url": end_url,
             "change_image_url": change_url,
+            "tile_url": tile_url,
             "dates": date_info
         }
 
@@ -149,6 +163,7 @@ def check_deforestation(region_geometry, threshold, lookback_days):
             "start_image_url": None,
             "end_image_url": None,
             "change_image_url": None,
+            "tile_url": None,
             "dates": date_info
         }
     except Exception as e:
@@ -161,6 +176,7 @@ def check_deforestation(region_geometry, threshold, lookback_days):
             "start_image_url": None,
             "end_image_url": None,
             "change_image_url": None,
+            "tile_url": None,
             "dates": date_info
         }
 

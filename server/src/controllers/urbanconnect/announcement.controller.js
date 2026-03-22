@@ -1,21 +1,6 @@
 import Announcement from "../../models/urbanconnect/announcementModel.js";
 
 /**
- * cosine similarity helper
- */
-function cosineSimilarity(a, b) {
-  if (!a?.length || !b?.length || a.length !== b.length) return 0;
-  let dot = 0, magA = 0, magB = 0;
-  for (let i = 0; i < a.length; i++) {
-    dot += a[i] * b[i];
-    magA += a[i] * a[i];
-    magB += b[i] * b[i];
-  }
-  const denom = Math.sqrt(magA) * Math.sqrt(magB);
-  return denom === 0 ? 0 : dot / denom;
-}
-
-/**
  * GET /api/announcements?city=Delhi&limit=20
  * Fetch latest synthetic announcements (read-only, max 20)
  */
@@ -52,39 +37,94 @@ export const getAnnouncements = async (req, res) => {
 
 /**
  * POST /api/announcements/search
- * Vector similarity search for RAG fact-checking (internal, used by agent)
- * Body: { embedding: number[], city: string }
+ * Hybrid Vector + BM25 search for RAG fact-checking
  */
 export const searchAnnouncementsForRAG = async (req, res) => {
   try {
-    const { embedding, city } = req.body;
+    // We now accept 'queryText' alongside the embedding to run the BM25 keyword search
+    const { embedding, city, queryText } = req.body;
 
     if (!embedding?.length) {
       return res.status(400).json({ error: "embedding is required" });
     }
 
-    const filter = {};
-    if (city) filter.city = city;
-    // Only fetch announcements that have embeddings
-    filter["embedding.0"] = { $exists: true };
+    // Build the MongoDB Atlas Hybrid Search Pipeline
+    const pipeline = [
+      {
+        $search: {
+          index: "hybrid_announcement_index", // This MUST match the name of the index in Atlas
+          compound: {
+            should: [
+              // 1. The Vector Search (Semantic Meaning)
+              {
+                vector: {
+                  queryVector: embedding,
+                  path: "embedding",
+                  numCandidates: 100,
+                  limit: 5
+                }
+              }
+            ]
+          }
+        }
+      }
+    ];
 
-    const announcements = await Announcement.find(filter)
-      .populate("authority", "postName department")
-      .lean();
+    // 2. The BM25 Text Search (Exact Keywords)
+    // If the Python agent sends the text, we add the keyword search to the pipeline
+    if (queryText) {
+      pipeline[0].$search.compound.should.push({
+        text: {
+          query: queryText,
+          path: ["title", "body", "department"] // Fields to check for keywords
+        }
+      });
+    }
 
-    // Compute cosine similarity and rank
-    const scored = announcements
-      .map((a) => ({
-        _id: a._id,
-        title: a.title,
-        body: a.body,
-        authorityName: a.authority?.postName || "Official",
-        department: a.authority?.department || a.department || "",
-        createdAt: a.createdAt,
-        similarity: cosineSimilarity(embedding, a.embedding),
-      }))
-      .sort((a, b) => b.similarity - a.similarity)
-      .slice(0, 5);
+    // 3. The Pre-Filter (Hard constraint: Must match the city)
+    if (city) {
+      pipeline[0].$search.compound.filter = [
+        {
+          text: {
+            query: city,
+            path: "city"
+          }
+        }
+      ];
+    }
+
+    // Only get the top 5 results
+    pipeline.push({ $limit: 5 });
+
+    // Lookup the authority details (since we are using aggregation, we can't use standard .populate())
+    // NOTE: Change "administrations" to whatever your actual authority collection name is in MongoDB
+    pipeline.push({
+      $lookup: {
+        from: "administrations", 
+        localField: "authority",
+        foreignField: "_id",
+        as: "authorityDoc"
+      }
+    });
+
+    pipeline.push({
+      $unwind: { path: "$authorityDoc", preserveNullAndEmptyArrays: true }
+    });
+
+    // Execute the Hybrid Search
+    const announcements = await Announcement.aggregate(pipeline);
+
+    // Format the results for the LangGraph Agent
+    const scored = announcements.map((a) => ({
+      _id: a._id,
+      title: a.title,
+      body: a.body,
+      authorityName: a.authorityDoc?.postName || "Official",
+      department: a.authorityDoc?.department || a.department || "",
+      createdAt: a.createdAt,
+      // MongoDB automatically assigns an RRF search score when combining Vector + Text
+      similarityScore: a.score 
+    }));
 
     res.json({ success: true, results: scored });
   } catch (err) {

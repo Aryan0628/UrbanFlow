@@ -2,6 +2,7 @@ import { db } from ".././../firebaseadmin/firebaseadmin.js"
 import admin from 'firebase-admin';
 import { pushNotificationToUser } from "../../utils/pushNotification.js"
 import cloudinary from "../../../config/cloudinary.js"
+import { syncReportStatus } from "../../services/syncReportStatus.js";
 
 export const getTask = async (req, res) => {
   try {
@@ -104,6 +105,10 @@ export const assignTask = async (req, res) => {
 
     const taskRef = await db.collection('tasks').add(newTask);
 
+    if (reportId) {
+      // Always sync UrbanConnect instantly
+      syncReportStatus(reportId, 'ASSIGNED');
+    }
 
     if (reportId && reporterEmail) {
       const userSnapshot = await db.collection('users').where('email', '==', reporterEmail).limit(1).get();
@@ -214,6 +219,7 @@ export const resolveTask = async (req, res) => {
         await pushNotificationToUser(reporterUid, notificationPayload);
 
         console.log(`Main DB Report ${reportId} updated and user ${reporterUid} notified.`);
+        syncReportStatus(reportId, 'USERVERIFICATION');
       }
     }
 

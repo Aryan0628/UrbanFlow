@@ -1,4 +1,5 @@
 import { db } from '../../firebaseadmin/firebaseadmin.js';
+import { tryAutoDispatch } from '../../services/autoDispatch.js';
 
 export const saveWaterReport = async (req, res) => {
   try {
@@ -9,7 +10,6 @@ export const saveWaterReport = async (req, res) => {
       return res.status(400).json({ message: "Missing userId or geohash in payload" });
     }
 
-    const dataToSave = { ...data };
 
     const reportDocRef = db
       .collection('waterReports')
@@ -18,13 +18,30 @@ export const saveWaterReport = async (req, res) => {
       .doc(userId)
       .collection('userReports')
       .doc();
-    const finalData = {
-        ...dataToSave,
-        id: reportDocRef.id, 
-        createdAt: new Date() 
+    const dataToSave = {
+      ...data,
+      id: reportDocRef.id,
+      userId: userId,
+      geohash: geohash,
+      createdAt: new Date()
     };
-    
-    await reportDocRef.set(finalData);
+
+    await reportDocRef.set(dataToSave);
+
+    // Fire-and-forget: auto-dispatch to nearest staff in background
+    tryAutoDispatch({
+      reportId:   reportDocRef.id,
+      department: 'water',
+      geohash,
+      location:   data.location || data.coords,
+      title:      data.title,
+      aiAnalysis: data.aiAnalysis,
+      severity:   data.severity,
+      address:    data.address,
+      email:      data.email,
+      userId,
+      imageUrl:   data.imageUrl || data.image || null,
+    }).catch(() => {});
 
     return res.status(200).json({
       status: "VERIFIED",

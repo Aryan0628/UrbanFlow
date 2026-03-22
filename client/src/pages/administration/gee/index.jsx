@@ -8,7 +8,8 @@ import {
   CloudRain, 
   Factory, 
   ThermometerSun, 
-  ArrowLeft
+  ArrowLeft,
+  History
 } from "lucide-react"
 import { useAuthStore } from "../../../store/useAuthStore" 
 
@@ -127,8 +128,17 @@ export default function EnvironmentalHub() {
           </div>
         </div>
 
-        {/* RIGHT: User Profile */}
+        {/* RIGHT: User Profile & History */}
         <div className="flex items-center gap-3">
+          <button 
+            onClick={() => navigate('/administration/geoscope/history')}
+            className="flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full font-bold text-sm hover:bg-emerald-100 transition-colors shadow-sm"
+            title="View History"
+          >
+            <History className="w-4 h-4" />
+            <span className="hidden sm:inline">My Reports</span>
+          </button>
+
           <div className="flex items-center gap-2 md:gap-3 bg-white p-1 md:p-1.5 md:pr-4 rounded-full border border-slate-200 shadow-sm">
             <img 
               src={storedUser?.picture || "https://api.dicebear.com/7.x/avataaars/svg?seed=Ultron"} 
