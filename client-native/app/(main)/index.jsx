@@ -25,6 +25,7 @@ import {
   CheckCircle2, MapPin, Sun, Cloud,
   CloudRain, Snowflake, Users,
 } from 'lucide-react-native';
+import CommandBar from '../../components/features/CommandBar/CommandBar';
 
 // ─── Distance helper ──────────────────────────────────────────────
 const getDistanceInMeters = (lat1, lon1, lat2, lon2) => {
@@ -890,6 +891,9 @@ export default function Dashboard() {
           </View>
         )}
       </ScrollView>
+
+      {/* ── AI Command Assistant ── */}
+      <CommandBar />
     </View>
   );
 }

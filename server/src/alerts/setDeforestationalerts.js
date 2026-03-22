@@ -7,8 +7,6 @@ export const setDeforestationAlert = async (req, res) => {
     } = req.body;
 
     const userId = req.auth?.payload?.sub;
-    console.log("User ID:", req.body);
-    console.log("Report Ref:", reportRef);
 
 
     if (!userId ) {
