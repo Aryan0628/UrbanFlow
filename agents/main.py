@@ -3,6 +3,7 @@ from jose import jwt
 import requests
 from typing import List, Dict, Optional, Any
 from fastapi import FastAPI, HTTPException, Header, Depends
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
@@ -15,11 +16,11 @@ from brain.safety_agent import safety_app
 from brain.urbanconnect.orchestrator import civic_analysis_workflow
 from brain.voice_analysis_agent import voice_analysis_app
 
-# [CHANGE 1: Renamed 'app' to 'report_agent' to avoid conflict with FastAPI app]
-from brain.orchestrator import app as report_agent 
+from brain.civicconnect.orchestrator import app as report_agent
+from brain.civicconnect.state import ReportCategory, ReportStatus
 from brain.streetgig.job_agent import app as job_agent_workflow
-from state import ReportStatus # Importing enums is good practice
-
+from brain.gee.orchestrator import intelligence_orchestrator
+from brain.gee.correlation_agent import run_deep_correlation
 # --- GRAPH RAG IMPORTS ---
 from brain.streetgig.skill_graph_agent import extract_skills, upsert_skill_nodes
 from brain.streetgig.graph_retrieval_agent import get_candidate_pool
@@ -51,9 +52,9 @@ async def startup_db():
         import certifi
         mongo_client = AsyncIOMotorClient(MONGO_URI, tlsCAFile=certifi.where())
         mongo_db = mongo_client[MONGO_DB_NAME]
-        print(f"✅ Connected to MongoDB: {MONGO_DB_NAME}")
+        print(f"✅ Connected to MongoDB: {MONGO_DB_NAME}", flush=True)
     else:
-        print("⚠️ MONGODB_URI not set — graph endpoints will not work")
+        print("⚠️ MONGODB_URI not set — graph endpoints will not work", flush=True)
 
 @app.on_event("shutdown")
 async def shutdown_db():
@@ -138,6 +139,19 @@ class PulseRequest(BaseModel):
     posts: List[Dict[str, Any]]
     previous_data: Optional[Dict[str, Any]] = None
 
+# --- GEOSCOPE AI SCHEMAS ---
+class GeoIntelligenceRequest(BaseModel):
+    module_type: str
+    region_id: str
+    summary_stats: Dict[str, Any]
+    image_url: Optional[str] = None
+    historical_reports: List[Dict[str, Any]] = []
+
+class GeoCorrelationRequest(BaseModel):
+    primary_module: str
+    primary_stats: Dict[str, Any]
+    secondary_results: List[Dict[str, Any]]
+
 # --- GRAPH RAG REQUEST SCHEMAS ---
 class GraphMatchRequest(BaseModel):
     job_id: str
@@ -217,7 +231,7 @@ def get_user_from_token(authorization: str = Header(...)):
         }
 
     except Exception as e:
-        print("Auth error:", e)
+        print("Auth error:", e, flush=True)
         raise HTTPException(status_code=401, detail="Unauthorized")
 
 # --- ENDPOINTS ---
@@ -243,13 +257,13 @@ async def process_job(req: JobProcessRequest):
             "extracted_skills": final_state.get("extracted_skills").dict() if final_state.get("extracted_skills") else None
         }
     except Exception as e:
-        print(f"Error in Process Job Endpoint: {e}")
+        print(f"Error in Process Job Endpoint: {e}", flush=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/embed")
 async def generate_embedding_endpoint(req: EmbedRequest):
     try:
-        print("request hitted in main.py")
+        print("request hitted in main.py", flush=True)
         from brain.embedding_agent import generate_embedding
         vector = await generate_embedding(req.text)
         return {
@@ -257,7 +271,7 @@ async def generate_embedding_endpoint(req: EmbedRequest):
             "embedding": vector
         }
     except Exception as e:
-        print(f"Error in embed endpoint: {e}")
+        print(f"Error in embed endpoint: {e}", flush=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/resolveWasteReports")
@@ -267,7 +281,7 @@ async def resolve_waste_report(req: WasteReportRequest):
             "imageUrl": req.imageUrl,
             "staffimageUrl": req.staffimageUrl,
         }
-        print(f"Initial State: {initial_report_state}")
+        print(f"Initial State: {initial_report_state}", flush=True)
         final_state = await workflow.ainvoke(initial_report_state)
         confidence_data = final_state.get("confidence_result")
 
@@ -278,94 +292,110 @@ async def resolve_waste_report(req: WasteReportRequest):
             "confidence_result": confidence_data.model_dump()
         }
     except Exception as e:
-        print(f"Error in Report Endpoint: {e}")
+        print(f"Error in Report Endpoint: {e}", flush=True)
         raise HTTPException(status_code=500, detail=f"Orchestration Failed: {str(e)}")
+"""
+main.py — IMPROVED /reports endpoint
+Changes:
+  - Initialises preflight fields to None in state
+  - Handles REJECTED status from preflight with a 422 response
+  - Cleaner title extraction
+"""
+
+# ... (other imports unchanged — include all existing imports from your main.py)
+
+from brain.civicconnect.orchestrator import app as report_agent
+from brain.civicconnect.state import ReportCategory, ReportStatus
+
+# ── /reports endpoint (only showing the changed portion) ──────────────────────
 @app.post("/reports")
 async def create_report(
-    req: ReportRequest, 
-    user_info: dict = Depends(get_user_from_token) 
+    req: ReportRequest,
+    user_info: dict = Depends(get_user_from_token)
 ):
     try:
         secure_user_id = user_info["userId"]
-        secure_email = user_info["email"]
-        print(f"email ${secure_email} usr_Id ${secure_user_id}")
+        secure_email   = user_info["email"]
+        print(f"--- Processing report from: {secure_email} ---", flush=True)
 
-        print(f"--- Processing Report from: {secure_email} ---")
+        initial_state = {
+            # Auth
+            "userId":  secure_user_id,
+            "email":   secure_email,
 
-        initial_report_state = {
-            "userId": secure_user_id,
-            "email": secure_email,
-            "imageUrl": req.imageUrl,
+            # Report data
+            "imageUrl":    req.imageUrl,
             "description": req.description,
-            "location": {"lat": req.location.lat, "lng": req.location.lng},
-            "geohash": req.geohash,
-            "address": req.address,
-            "status": req.status, 
-            
+            "location":    {"lat": req.location.lat, "lng": req.location.lng},
+            "geohash":     req.geohash,
+            "address":     req.address,
+            "status":      req.status,
 
+            # Preflight fields (initialised to None — populated by preflight_node)
+            "preflight_passed":           None,
+            "preflight_hint":             None,
+            "preflight_rejection_reason": None,
+
+            # Locality fields
             "locality_imageUrl": None,
-            "locality_email": None,
-            "locality_userId": None,
+            "locality_email":    None,
+            "locality_userId":   None,
             "locality_reportId": None,
 
-            "tool": "SAVE", 
-            
-
-            "water_analysis": None,
-            "waste_analysis": None,
-            "infra_analysis": None,
-            "electric_analysis": None,
+            # Decision fields
+            "tool":            "SAVE",
+            "water_analysis":  None,
+            "waste_analysis":  None,
+            "infra_analysis":  None,
+            "electric_analysis":  None,
             "uncertain_analysis": None,
-            "aiAnalysis": None,
-            "severity": None,
+            "aiAnalysis":        None,
+            "severity":          None,
             "assigned_category": None,
-            "route": "",
-            "updatedRoute": "",
-            
- 
-            "reportId": None 
+            "title":             None,
+            "route":             "",
+            "updatedRoute":      "",
+            "reportId":          None,
         }
-        
 
-        result = await report_agent.ainvoke(initial_report_state)
-        
+        result = await report_agent.ainvoke(initial_state)
 
-        category = result.get("assigned_category") 
-        extracted_title = "Report Processed" 
-        tool=result.get("tool")
+        # ── Handle preflight rejection ─────────────────────────────────────────
+        if result.get("status") == "REJECTED":
+            return JSONResponse(
+                status_code=422,
+                content={
+                    "status":  "REJECTED",
+                    "message": result.get("aiAnalysis", "Image not relevant to civic issues"),
+                }
+            )
 
-        if category:
- 
-            analysis_key = f"{category.lower()}_analysis" 
-            analysis_data = result.get(analysis_key)
-            if analysis_data and hasattr(analysis_data, 'title'):
-                extracted_title = analysis_data.title
-            elif analysis_data and isinstance(analysis_data, dict):
-                extracted_title = analysis_data.get('title', extracted_title)
+        category      = result.get("assigned_category")
+        extracted_title = result.get("title") or "Report Processed"
+        tool          = result.get("tool")
 
         if result.get("reportId"):
-             return {
-                "status": "success",
-                "message": "Report processed successfully",
-                "reportId": result.get("reportId"),
-                "category": category,
-                "title": extracted_title, 
-                "severity": result.get("severity"),
+            return {
+                "status":      "success",
+                "message":     "Report processed successfully",
+                "reportId":    result.get("reportId"),
+                "category":    str(category) if category else None,
+                "title":       extracted_title,
+                "severity":    str(result.get("severity")) if result.get("severity") else None,
                 "ai_analysis": result.get("aiAnalysis"),
-                "tool":tool
-
+                "tool":        tool,
             }
         else:
             return {
-                "status": "partial_success",
-                "message": "Analysis complete, but save might have failed.",
-                "category": category,
-                "ai_analysis": result.get("aiAnalysis")
+                "status":      "partial_success",
+                "message":     "Analysis complete but save may have failed.",
+                "category":    str(category) if category else None,
+                "ai_analysis": result.get("aiAnalysis"),
             }
 
     except Exception as e:
-        print(f"Error in Report Endpoint: {e}")
-        raise HTTPException(status_code=500, detail=f"Orchestration Failed: {str(e)}")
+        print(f"Error in /reports: {e}", flush=True)
+        raise HTTPException(status_code=500, detail=f"Orchestration failed: {str(e)}")
 
 @app.post("/analyze-safety")
 async def analyze_chat_safety(req: SafetyAnalysisRequest):
@@ -385,7 +415,7 @@ async def analyze_chat_safety(req: SafetyAnalysisRequest):
             "summary": result.summary
         }
     except Exception as e:
-        print(f"Error in analyze-safety endpoint: {e}")
+        print(f"Error in analyze-safety endpoint: {e}", flush=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/agent1")
@@ -416,7 +446,7 @@ async def chat_endpoint(req: ChatRequest):
             }
         }
     except Exception as e:
-        print(f"Error in Chat Endpoint: {e}")
+        print(f"Error in Chat Endpoint: {e}", flush=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/throttle")
@@ -436,7 +466,7 @@ async def throttle_push(req: ThrottleRequest):
             "ai_analysis": final_msg
         }
     except Exception as e:
-        print(f"Error in throttle agent: {e}")
+        print(f"Error in throttle agent: {e}", flush=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 class SkillGapRequest(BaseModel):
@@ -463,7 +493,7 @@ async def process_skill_gap(req: SkillGapRequest):
             "skill_gap_embeddings": final_state.get("skill_gap_embeddings")
         }
     except Exception as e:
-        print(f"Error in Process Skill Gap Endpoint: {e}")
+        print(f"Error in Process Skill Gap Endpoint: {e}", flush=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/analyze-post")
@@ -491,7 +521,35 @@ async def analyze_post(req: CivicAnalysisRequest):
             "context_note": final_state.get("context_note")
         }
     except Exception as e:
-        print(f"Error in Civic Analysis Endpoint: {e}")
+        print(f"Error in Civic Analysis Endpoint: {e}", flush=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/analyze-civic")
+async def analyze_civic(req: CivicAnalysisRequest):
+    try:
+        initial_state = {
+            "post_id": req.postId,
+            "title": req.title,
+            "description": req.description,
+            "image_urls": req.imageUrls,
+            "city": req.city
+        }
+
+        final_state = await civic_analysis_workflow.ainvoke(initial_state)
+
+        return {
+            "status": "success",
+            "sentiment": final_state.get("sentiment"),
+            "sentiment_score": final_state.get("sentiment_score"),
+            "urgency": final_state.get("urgency"),
+            "post_type": final_state.get("post_type"),
+            "embedding": final_state.get("embedding"),
+            "cluster_id": final_state.get("cluster_id"),
+            "is_misinformation": final_state.get("is_misinformation"),
+            "context_note": final_state.get("context_note")
+        }
+    except Exception as e:
+        print(f"Error in analyze-civic Endpoint: {e}", flush=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 class ClusterSummaryResult(BaseModel):
@@ -520,7 +578,7 @@ Generate a concise 5-word headline and a clear 2-sentence summary of the crisis 
             "summary": result.summary
         }
     except Exception as e:
-        print(f"Error in Summarize Cluster Endpoint: {e}")
+        print(f"Error in Summarize Cluster Endpoint: {e}", flush=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/analyze-voice")
@@ -561,7 +619,7 @@ async def analyze_voice(req: VoiceAnalysisRequest):
             "actionItems": result.actionItems,
         }
     except Exception as e:
-        print(f"Error in analyze-voice endpoint: {e}")
+        print(f"Error in analyze-voice endpoint: {e}", flush=True)
         raise HTTPException(status_code=500, detail=str(e))
     
 @app.post("/analyze-pulse")
@@ -575,13 +633,55 @@ async def analyze_pulse_endpoint(req: PulseRequest):
         )
         return result
     except Exception as e:
-        print(f"Error in City Pulse Endpoint: {e}")
+        print(f"Error in City Pulse Endpoint: {e}", flush=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
     import uvicorn
     port = int(os.environ.get("PORT", 8000))
     uvicorn.run(app, host="0.0.0.0", port=port)
+
+
+# --- GEOSCOPE ENDPOINTS ---
+
+@app.post("/analyze-geoscope-intelligence")
+async def analyze_geoscope_intelligence(req: GeoIntelligenceRequest):
+    try:
+        print(f"📡 [GEE] Intelligence request received for module: {req.module_type} (Region: {req.region_id})", flush=True)
+        initial_state = {
+            "module_type": req.module_type,
+            "region_id": req.region_id,
+            "summary_stats": req.summary_stats,
+            "image_url": req.image_url,
+            "historical_reports": req.historical_reports
+        }
+        final_state = await intelligence_orchestrator.ainvoke(initial_state)
+        report = final_state.get("intelligence_report")
+        
+        if not report:
+            print(f"❌ [GEE] Intelligence generation failed for {req.region_id}", flush=True)
+            raise HTTPException(status_code=500, detail="Intelligence report generation failed.")
+            
+        print(f"✅ [GEE] Intelligence report generated successfully for {req.region_id}", flush=True)
+        return report
+    except Exception as e:
+        print(f"Error in Geoscope Intelligence Endpoint: {e}", flush=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/analyze-geoscope-correlation")
+async def analyze_geoscope_correlation(req: GeoCorrelationRequest):
+    try:
+        print(f"📡 [GEE] Correlation request received for primary: {req.primary_module}", flush=True)
+        findings = await run_deep_correlation(
+            req.primary_module,
+            req.primary_stats,
+            req.secondary_results
+        )
+        print(f"✅ [GEE] Deep correlation complete. Found {len(findings)} composite findings.", flush=True)
+        return {"findings": findings}
+    except Exception as e:
+        print(f"Error in Geoscope Correlation Endpoint: {e}", flush=True)
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # --- GRAPH RAG ENDPOINTS ---
