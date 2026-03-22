@@ -254,7 +254,7 @@ const actionHandlers = {
       const p = snap.data();
       return {
         reply:
-          `👤 **${p.name || "User"}**\n` +
+          `**${p.name || "User"}**\n` +
           `• Email: ${p.email || "N/A"}\n` +
           `• Worker: ${p.interestedToWork ? "Active" : "Inactive"}\n` +
           (p.workerCategories?.length ? `• Skills: ${p.workerCategories.join(", ")}\n` : "") +
@@ -301,6 +301,55 @@ const actionHandlers = {
     action: { type: "highlight_sos" },
   }),
 
+  // ─── KindShare: Search Active Donation Requests ───
+  search_kindshare: async ({ entities }) => {
+    try {
+      const category = entities?.category || null;
+
+      let query = db.collection("kindshare_requests")
+        .where("status", "==", "pending")
+        .orderBy("createdAt", "desc")
+        .limit(10);
+
+      const snapshot = await query.get();
+
+      if (snapshot.empty) {
+        return {
+          reply: "There are no active donation requests on KindShare right now. Check back later or visit KindShare to browse NGOs!",
+          action: { type: "navigate", path: "/kindshare" },
+        };
+      }
+
+      let requests = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+
+      // Client-side category filter (Firestore doesn't support two inequality / multi-where easily)
+      if (category) {
+        const filtered = requests.filter(
+          (r) => (r.category || "").toLowerCase() === category.toLowerCase()
+        );
+        if (filtered.length > 0) requests = filtered;
+      }
+
+      const list = requests
+        .map((r, i) => {
+          const name = r.receiverName || "Someone";
+          const cat = r.category || "General";
+          const desc = r.description || r.itemName || "No details";
+          return `${i + 1}. ${name} needs ${cat} — ${desc}`;
+        })
+        .join("\n");
+
+      return {
+        reply:
+          `Found ${requests.length} active donation request${requests.length > 1 ? "s" : ""} on KindShare:\n\n${list}\n\n` +
+          `Tap "Open" to donate or learn more.`,
+        action: { type: "navigate", path: "/kindshare" },
+      };
+    } catch (err) {
+      console.error("[SearchKindShare] Error:", err);
+      return { reply: "Could not search KindShare requests. Please try again." };
+    }
+  },
 
   unknown: async ({ text }) => ({
     reply:
@@ -310,8 +359,8 @@ const actionHandlers = {
       `• My jobs — View your posted jobs\n` +
       `• Notifications — Check alerts\n` +
       `• File complaint — Open CivicConnect\n` +
+      `• Donate / KindShare — See active donation requests\n` +
       `• My profile — View your info\n` +
-      `• Learning schemes
-       — Course recommendations`,
+      `• Learning schemes — Course recommendations`,
   }),
 };

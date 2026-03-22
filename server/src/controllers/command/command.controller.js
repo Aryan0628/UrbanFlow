@@ -29,15 +29,18 @@ AVAILABLE INTENTS:
 
 8. "navigate_kindshare" — User wants to open KindShare (NGO/donations)
 
-9. "show_profile" — User wants to see their profile info
+9. "search_kindshare" — User wants to see active donation requests, wants to donate, or asks if anyone needs donations
+   Entities: category (optional — e.g. "food", "clothes", "medicine", "books")
 
-10. "learning_schemes" — User wants to see government learning schemes
+10. "show_profile" — User wants to see their profile info
 
-11. "show_weather" — User wants weather info
+11. "learning_schemes" — User wants to see government learning schemes
 
-12. "fire_sos" — User is reporting a fire emergency
+12. "show_weather" — User wants weather info
 
-13. "unknown" — Cannot classify the intent
+13. "fire_sos" — User is reporting a fire emergency
+
+14. "unknown" — Cannot classify the intent
 
 JOB CATEGORIES: Movers, Carpenter, Plumber, Electrician, Masonry, Cleaners, Painters, Mechanic, Gardening, AC Repair, Tech Support, Tailor, Beauty & Salon, Delivery, Photography, House Sitting, Civil Work, Flooring, Roofing, Welding, Scaffolding, Security, Janitorial Services, Maintenance, BMS Operator, Pest Control, Deep Cleaning, Home Renovation, Appliance Repair, Interior Design
 

@@ -1,10 +1,3 @@
-"""
-assistant_agent.py — LangGraph workflow for the UrbanFlow voice assistant v2.
-
-Graph:  router_node → tool_executor → context_enricher → responder_node
-                  ↘ (no tools needed) ──────────────────→ responder_node
-"""
-
 import os
 import json
 from dotenv import load_dotenv
@@ -21,7 +14,7 @@ load_dotenv()
 # ─── LLM Setup ──────────────────────────────────────────────────────
 
 llm = ChatGoogleGenerativeAI(
-    model="gemini-2.0-flash",
+    model="gemini-2.5-pro",
     temperature=0.1,
     max_retries=2,
     google_api_key=os.getenv("GOOGLE_API_KEY"),
@@ -40,8 +33,10 @@ RULES:
 2. If the message is "__session_start__", call "check_updates" to proactively inform the user of any changes.
 3. For general chat/greetings, respond with NO tool calls — just set "direct_response" to true.
 4. For navigation requests (open StreetGig, go to CivicConnect, etc.), call "navigate".
-5. You can call multiple tools if needed.
-6. Be lenient with language — understand Hindi, Hinglish, and casual phrasing.
+5. For job posting requests ("post a job", "I need a plumber", "hire someone"), call "post_job" with whatever details you can extract from the message. This is a multi-turn flow — the server will ask for missing fields.
+6. For donation/KindShare queries ("I want to donate", "any donation requests?", "who needs help?"), call "search_kindshare". Optionally extract a category (food, clothes, medicine, books).
+7. You can call multiple tools if needed.
+8. Be lenient with language — understand Hindi, Hinglish, and casual phrasing.
 
 Respond ONLY with valid JSON (no markdown):
 {{
