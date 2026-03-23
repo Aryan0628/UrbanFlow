@@ -1,8 +1,7 @@
 import { useEffect, useRef } from "react";
 import { useAuth0 } from "react-native-auth0";
 import { useAuthStore } from "../store/useAuthStore";
-import { api } from "../lib/api";
-import { setAuth0TokenGetter } from "../lib/auth0Axios";
+import { api, setAuth0TokenGetter } from "../lib/api";
 
 export default function AuthSyncProvider({ children }) {
   const { user, isLoading, getCredentials } = useAuth0();

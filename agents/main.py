@@ -12,6 +12,9 @@ from brain.resolveWasteAgent import workflow
 from brain.safety_agent import safety_app
 from brain.urbanconnect.orchestrator import civic_analysis_workflow
 from brain.voice_analysis_agent import voice_analysis_app
+from brain.assistant_agent import assistant_app
+from brain.layel_1 import app_graph
+from brain.agent3 import analyze_emergency
 
 from brain.civicconnect.orchestrator import app as report_agent
 from brain.civicconnect.state import ReportCategory, ReportStatus
@@ -165,6 +168,22 @@ class ExtractSkillsRequest(BaseModel):
     worker_id: str
     text: str
 
+class ChatRequest(BaseModel):
+    roomId: str
+    messages: List[Dict[str, Any]]
+    currentUserMessage: str
+    currentUserId: str
+
+class ThrottleRequest(BaseModel):
+    userId: str
+    routeId: str
+    message: str
+
+class AssistantChatRequest(BaseModel):
+    text: str
+    sessionId: Optional[str] = None
+    messages: Optional[List[Dict]] = None
+
 def fetch_user_profile(access_token: str):
     url = f"https://{AUTH0_DOMAIN}/userinfo"
     headers = {
@@ -178,10 +197,9 @@ def fetch_user_profile(access_token: str):
     return response.json()
 def get_user_from_token(authorization: str = Header(...)):
     try:
-        if not authorization.startswith("Bearer "):
-            raise HTTPException(status_code=401, detail="Invalid auth header")
+        parts = authorization.split(" ")
+        token = parts[1] if len(parts) > 1 else parts[0]
 
-        token = authorization.split(" ")[1]
 
         # Fetch Auth0 public keys
         jwks_url = f"https://{AUTH0_DOMAIN}/.well-known/jwks.json"
@@ -214,6 +232,7 @@ def get_user_from_token(authorization: str = Header(...)):
         return {
             "userId": payload["sub"],      # auth0|xxxxx
             "email": profile.get("email"),
+            "raw_token": token,
         }
 
     except Exception as e:
@@ -620,6 +639,46 @@ async def analyze_pulse_endpoint(req: PulseRequest):
         return result
     except Exception as e:
         print(f"Error in City Pulse Endpoint: {e}", flush=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ─── Assistant v2 (LangGraph) ────────────────────────────
+
+@app.post("/assistant-chat")
+async def assistant_chat(
+    req: AssistantChatRequest,
+    user_info: dict = Depends(get_user_from_token),
+):
+    try:
+        user_id = user_info["userId"]
+        token = user_info.get("raw_token", "")
+
+
+        # Build conversation history
+        history = req.messages or []
+
+        initial_state = {
+            "user_id": user_id,
+            "session_id": req.sessionId or user_id,
+            "current_message": req.text,
+            "messages": history,
+            "tool_calls": None,
+            "tool_results": None,
+            "proactive_updates": None,
+            "last_seen_context": None,
+            "response": "",
+            "action": None,
+            "_token": token,
+        }
+
+        result = await assistant_app.ainvoke(initial_state)
+
+        return {
+            "reply": result.get("response", "Sorry, I couldn't process that."),
+            "action": result.get("action"),
+            "proactiveUpdates": bool(result.get("proactive_updates")),
+        }
+    except Exception as e:
+        print(f"[AssistantV2] Error: {e}", flush=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
