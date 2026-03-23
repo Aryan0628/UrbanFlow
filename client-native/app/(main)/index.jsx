@@ -25,6 +25,8 @@ import {
   CheckCircle2, MapPin, Sun, Cloud,
   CloudRain, Snowflake, Users,
 } from 'lucide-react-native';
+import CommandBar from '../../components/features/CommandBar/CommandBar';
+import CommandBarV2 from '../../components/features/CommandBarV2/CommandBarV2';
 
 // ─── Distance helper ──────────────────────────────────────────────
 const getDistanceInMeters = (lat1, lon1, lat2, lon2) => {
@@ -51,7 +53,7 @@ const FEATURES = [
   },
   {
     id: 'reports',
-    title: 'CivicConnect',
+    title: 'CityHub',
     description: 'AI-powered grievance reporting for infrastructure, electricity, water, and waste management.',
     route: '/(main)/(tabs)/CivicConnect',
     Icon: Megaphone,
@@ -890,6 +892,10 @@ export default function Dashboard() {
           </View>
         )}
       </ScrollView>
+
+      {/* ── AI Command Assistant ── */}
+      <CommandBar />
+      <CommandBarV2 />
     </View>
   );
 }

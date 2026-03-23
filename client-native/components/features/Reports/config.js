@@ -11,7 +11,7 @@ import {
 
 export const GRIEVANCE_CONFIG = {
   id: "public-grievance-system",
-  title: "CivicConnect",
+  title: "CityHub",
   subtitle: "Public Reports Portal",
   description: "Unified reporting system for public utilities. Geo-tagged submissions are automatically routed to the relevant municipal department.",
   theme: {

@@ -54,7 +54,7 @@ const FEATURES = [
   },
   {
     id: "reports",
-    title: "CivicConnect",
+    title: "CityHub",
     description: "Submit grievances related to infrastructure, electricity, water, and waste management",
     route: "/reports",
     icon: Megaphone,

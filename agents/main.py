@@ -8,9 +8,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 # --- LANGGRAPH IMPORTS ---
-from brain.layel_1 import app_graph, FrontendMessage
-from brain.layel_2 import surveillance_agent
-from brain.agent3 import analyze_emergency
 from brain.resolveWasteAgent import workflow
 from brain.safety_agent import safety_app
 from brain.urbanconnect.orchestrator import civic_analysis_workflow
@@ -74,19 +71,8 @@ app.add_middleware(
 )
 
 # --- REQUEST SCHEMAS ---
-class ChatRequest(BaseModel):
-    roomId: str
-    messages: List[FrontendMessage]
-    currentUserMessage: str
-    currentUserId: str
-
 class RouteBatchRequest(BaseModel):
     payload: Dict[str, List[float]]
-
-class ThrottleRequest(BaseModel):
-    userId: str
-    routeId: str
-    message: List[FrontendMessage] 
 
 class JobProcessRequest(BaseModel):
     jobId: str
@@ -420,56 +406,56 @@ async def analyze_chat_safety(req: SafetyAnalysisRequest):
         print(f"Error in analyze-safety endpoint: {e}", flush=True)
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/agent1")
-async def chat_endpoint(req: ChatRequest):
-    try:
-        initial_state = {
-            "roomId": req.roomId,
-            "messages": req.messages,
-            "currentUserMessage": req.currentUserMessage,
-            "currentUserId": req.currentUserId
-        }
-        config = {"configurable": {"thread_id": req.roomId}}
+# @app.post("/agent1")
+# async def chat_endpoint(req: ChatRequest):
+#     try:
+#         initial_state = {
+#             "roomId": req.roomId,
+#             "messages": req.messages,
+#             "currentUserMessage": req.currentUserMessage,
+#             "currentUserId": req.currentUserId
+#         }
+#         config = {"configurable": {"thread_id": req.roomId}}
         
-        # Invoke the LangGraph agent
-        final_state = await app_graph.ainvoke(initial_state, config=config)
-        decision = final_state["final_model_score"]
+#         # Invoke the LangGraph agent
+#         final_state = await app_graph.ainvoke(initial_state, config=config)
+#         decision = final_state["final_model_score"]
         
-        return {
-            "status": "success",
-            "final_score": decision.final_safety_score,
-            "trigger_sos": decision.trigger_sos, 
-            "sos_context": decision.sos_context,
-            "analysis": decision.reason,
-            "details": {
-                "sentiment": final_state.get("model_1"),
-                "urgency": final_state.get("model_2"),
-                "severity": final_state.get("model_3")
-            }
-        }
-    except Exception as e:
-        print(f"Error in Chat Endpoint: {e}", flush=True)
-        raise HTTPException(status_code=500, detail=str(e))
+#         return {
+#             "status": "success",
+#             "final_score": decision.final_safety_score,
+#             "trigger_sos": decision.trigger_sos, 
+#             "sos_context": decision.sos_context,
+#             "analysis": decision.reason,
+#             "details": {
+#                 "sentiment": final_state.get("model_1"),
+#                 "urgency": final_state.get("model_2"),
+#                 "severity": final_state.get("model_3")
+#             }
+#         }
+#     except Exception as e:
+#         print(f"Error in Chat Endpoint: {e}", flush=True)
+#         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/throttle")
-async def throttle_push(req: ThrottleRequest):
-    try:
-        initial_state = {
-            "userId": req.userId,
-            "routeId": req.routeId,
-            "message": req.message, 
-            "context": None          
-        }
-        result = await analyze_emergency.ainvoke(initial_state)  
-        final_msg = result.get("context", "No analysis generated")
+# @app.post("/throttle")
+# async def throttle_push(req: ThrottleRequest):
+#     try:
+#         initial_state = {
+#             "userId": req.userId,
+#             "routeId": req.routeId,
+#             "message": req.message, 
+#             "context": None          
+#         }
+#         result = await analyze_emergency.ainvoke(initial_state)  
+#         final_msg = result.get("context", "No analysis generated")
         
-        return {
-            "status": "Emergency Marked",
-            "ai_analysis": final_msg
-        }
-    except Exception as e:
-        print(f"Error in throttle agent: {e}", flush=True)
-        raise HTTPException(status_code=500, detail=str(e))
+#         return {
+#             "status": "Emergency Marked",
+#             "ai_analysis": final_msg
+#         }
+#     except Exception as e:
+#         print(f"Error in throttle agent: {e}", flush=True)
+#         raise HTTPException(status_code=500, detail=str(e))
 
 class SkillGapRequest(BaseModel):
     questions: List[str]
@@ -691,7 +677,7 @@ async def analyze_geoscope_correlation(req: GeoCorrelationRequest):
 @app.post('/graph-match')
 async def graph_match(req: GraphMatchRequest):
     '''Full pipeline: graph retrieval → scoring → trajectory → re-rank'''
-    if not mongo_db:
+    if mongo_db is None:
         raise HTTPException(status_code=503, detail="MongoDB not connected")
     try:
         # Step 1: Graph retrieval
@@ -718,7 +704,7 @@ async def graph_match(req: GraphMatchRequest):
 
         # Step 2: Score each candidate
         for c in candidates:
-            rep = reputation_score(c['worker_id'], candidates, avg_skill_rating)
+            rep = reputation_score(c['worker_id'], c, avg_skill_rating)
             base_score = compute_final_score(
                 vector_sim=c.get('graph_score', 0.5),
                 graph_score=c.get('graph_score', 0),
@@ -752,7 +738,7 @@ async def graph_match(req: GraphMatchRequest):
 @app.post('/graph-writeback')
 async def graph_writeback(req: GraphWritebackRequest):
     '''Call on every job close. Keeps the graph current.'''
-    if not mongo_db:
+    if mongo_db is None:
         raise HTTPException(status_code=503, detail="MongoDB not connected")
     try:
         await write_job_completion(
@@ -767,7 +753,7 @@ async def graph_writeback(req: GraphWritebackRequest):
 @app.post('/graph-safety-flag')
 async def graph_safety_flag_endpoint(req: SafetyFlagRequest):
     '''Write a safety trust_flag edge. Called by safety_agent when severity >= HIGH.'''
-    if not mongo_db:
+    if mongo_db is None:
         raise HTTPException(status_code=503, detail="MongoDB not connected")
     try:
         await write_safety_flag(
@@ -781,7 +767,7 @@ async def graph_safety_flag_endpoint(req: SafetyFlagRequest):
 @app.post('/graph-extract-skills')
 async def extract_worker_skills(req: ExtractSkillsRequest):
     '''Extract skills from worker profile text and write has_skill edges.'''
-    if not mongo_db:
+    if mongo_db is None:
         raise HTTPException(status_code=503, detail="MongoDB not connected")
     try:
         result = await extract_skills(req.text)

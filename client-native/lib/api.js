@@ -26,7 +26,7 @@ api.interceptors.request.use(async (config) => {
 // Request Interceptor
 api.interceptors.request.use(
   async (config) => {
-    //console.log("Starting Request:", config); // Log request details
+    // console.log("Starting Request:", config); // Log request details
     return config;
   },
   (error) => {
@@ -38,11 +38,11 @@ api.interceptors.request.use(
 // Response Interceptor
 api.interceptors.response.use(
   (response) => {
-    //console.log("Response:", response); // Log response details
+    // console.log("Response:", response); // Log response details
     return response;
   },
   (error) => {
-    //console.error("Response Error:", error);
+    console.error("Response Error:", error);
 
     // Handle specific error codes globally
     if (error.response) {
