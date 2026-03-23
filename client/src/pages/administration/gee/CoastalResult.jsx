@@ -2,7 +2,13 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { ArrowLeft, AlertTriangle, CheckCircle, Calendar, Layers, Waves, TriangleAlert, Globe } from 'lucide-react';
 import { useAuth0 } from '@auth0/auth0-react';
 import { useState } from 'react';
-import { api } from "../../../lib/api.js"
+import { api } from "../../../lib/api.js";
+import { MapContainer, TileLayer } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
+import { useRegionCenter } from '../../../hooks/useRegionCenter';
+import MapAutoCenter from '../../../components/gee/MapAutoCenter';
+import IntelligenceReportCard from '../../../components/gee/IntelligenceReportCard';
+import CompositeFindingsBanner from '../../../components/gee/CompositeFindingsBanner';
 
 export default function CoastalResult() {
   const location = useLocation();
@@ -14,6 +20,7 @@ export default function CoastalResult() {
   const { data } = location.state || {};
   const result = data?.result;
   const reportRef = result?.reportref;
+  const { center, zoom, bounds } = useRegionCenter(result?.regionGeoJson || data?.regionGeoJson);
   console.log("result", result);
   console.log("reportRef", reportRef);
 
@@ -219,33 +226,48 @@ export default function CoastalResult() {
             </div>
           </div>
 
-          {/* Right: Large Map Visualization */}
+          {/* Right: Interactive Tile Map */}
           {/* Order-1 on mobile so map is seen first, Order-2 on desktop */}
-          <div className="order-1 lg:order-2 lg:col-span-2 bg-slate-900 rounded-3xl border border-slate-800 shadow-2xl overflow-hidden relative group h-[350px] md:h-[500px] lg:h-full">
-            {/* Background Grid Pattern */}
-            <div className="absolute inset-0 opacity-20 pointer-events-none"
-              style={{ backgroundImage: 'radial-gradient(#ffffff 1px, transparent 1px)', backgroundSize: '20px 20px' }}>
-            </div>
-
-            {result.visualization_url ? (
-              <img
-                src={result.visualization_url}
-                alt="Coastal Change Map"
-                className="w-full h-full object-contain relative z-10"
-              />
+          <div className="order-1 lg:order-2 lg:col-span-2 rounded-3xl border border-slate-800 shadow-2xl overflow-hidden relative h-[350px] md:h-[500px] lg:h-full">
+            {result.tile_url ? (
+              <MapContainer
+                center={center}
+                zoom={zoom}
+                style={{ width: '100%', height: '100%' }}
+                zoomControl={true}
+                scrollWheelZoom={false}
+              >
+                <MapAutoCenter bounds={bounds} />
+                   <TileLayer
+                  url="https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}"
+                  attribution="&copy; Google Maps"
+                  maxZoom={20}
+                />
+                <TileLayer
+                  url={result.tile_url}
+                  opacity={0.55}
+                  maxZoom={20}
+                />
+              </MapContainer>
             ) : (
-              <div className="absolute inset-0 flex items-center justify-center text-slate-500">
-                <p>Visualization unavailable</p>
+              <div className="absolute inset-0 flex items-center justify-center text-slate-500 bg-slate-900">
+                <p>No tile data</p>
               </div>
             )}
 
             {/* Floating Overlay Label */}
-            <div className="absolute top-4 right-4 md:top-6 md:right-6 z-20 bg-black/50 backdrop-blur-md border border-white/10 px-3 py-1.5 md:px-4 md:py-2 rounded-full flex items-center gap-2">
+            <div className="absolute top-4 right-4 md:top-6 md:right-6 z-[1000] bg-black/50 backdrop-blur-md border border-white/10 px-3 py-1.5 md:px-4 md:py-2 rounded-full flex items-center gap-2">
               <Layers className="w-3 h-3 md:w-4 md:h-4 text-white" />
-              <span className="text-[10px] md:text-xs font-bold text-white tracking-widest uppercase">Composite Layer</span>
+              <span className="text-[10px] md:text-xs font-bold text-white tracking-widest uppercase">Live Map</span>
             </div>
           </div>
         </div>
+
+        {/* AI Intelligence Report */}
+        <IntelligenceReportCard report={result.intelligence_report} />
+
+        {/* Cross-Module Correlation Findings */}
+        <CompositeFindingsBanner findings={result.composite_findings} />
 
       </main>
     </div>

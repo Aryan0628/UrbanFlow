@@ -132,6 +132,9 @@ app.use("/api/announcements", announcementRoutes);
 import civicAnalyticsRoutes from "./src/routes/civicAnalytics.routes.js";
 app.use("/api/civic-analytics", civicAnalyticsRoutes);
 
+import cityPulseRoutes from "./src/routes/cityPulse.routes.js";
+app.use("/api/city-pulse", cityPulseRoutes);
+
 import commandRoutes from "./src/routes/command.route.js";
 app.use("/api/command", commandRoutes);
 

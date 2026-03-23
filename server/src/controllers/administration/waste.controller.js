@@ -1,4 +1,4 @@
-import { db } from "../../firebaseadmin/firebaseadmin.js";
+import { db } from "../../firebaseadmin/firebaseAdmin.js";
 
 export const fetchWasteZones = async (req, res) => {
   try {

@@ -281,29 +281,7 @@ export default function FireAdmin() {
 
   const processingRef = useRef(new Set()); 
 
-  useEffect(() => {
-    const autoDispatchLoop = async () => {
-      if (!currentReports || currentReports.length === 0) return;
-      const pendingReports = currentReports.filter(r => !processingRef.current.has(r.id));
-
-      if (pendingReports.length > 0) {
-        console.log(`Auto-Dispatcher: Attempting to assign ${pendingReports.length} pending reports...`);
-      }
-
-      for (const report of pendingReports) {
-        processingRef.current.add(report.id); 
-        const success = await attemptDispatch(report, false); 
-        if (!success) {
-           processingRef.current.delete(report.id); 
-        }
-      }
-    };
-
-    autoDispatchLoop();
-    const intervalId = setInterval(autoDispatchLoop, 120000);
-    return () => clearInterval(intervalId);
-
-  }, [currentReports, attemptDispatch]);
+  // Removed client-side autoDispatchLoop -- it is now handled reliably by server/src/cron/autoDispatchCron.js
 
 
   const handleToggleTracking = (report) => {

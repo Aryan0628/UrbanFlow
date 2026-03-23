@@ -71,11 +71,23 @@ export const fetchQuestions = async (req, res) => {
     const enrichedQuestions = await Promise.all(
       questions.map(async (q) => {
         const commentCount = await Comment.countDocuments({ questionId: q._id });
+        
+        let authorName = q.author?.username || 'UrbanFlow User';
+        let authorHandle = q.author?.email ? q.author.email.split('@')[0] : (q.author?.username || 'resident').toLowerCase().replace(/\s+/g, '');
+        let authorAvatar = q.author?.avatar || '';
+        console.log(q.author)
+
+        // Spoof CivicConnect System User only if it's unmapped/dummy
+        if (q.isCivicReport && (!q.author || q.author._id?.toString() === '000000000000000000000000' || authorName === 'UrbanFlow User')) {
+          authorName = 'CivicConnect AI Verified';
+          authorHandle = 'civicconnect';
+        }
+
         return {
           ...q,
-          authorName: q.author?.username || 'UrbanFlow User',
-          authorHandle: (q.author?.username || 'resident').toLowerCase().replace(/\s+/g, ''),
-          authorAvatar: q.author?.avatar || '',
+          authorName,
+          authorHandle,
+          authorAvatar,
           timeAgo: getTimeAgo(q.createdAt),
           commentCount,
           userVote: voteMap.get(q._id.toString()) || 0,
@@ -130,11 +142,22 @@ export const fetchQuestionById = async (req, res) => {
     const comments = await Comment.find({ questionId: question._id, parentId: null }).sort({ createdAt: -1 }).lean();
     
     const questionObj = question.toObject();
+    
+    let authorName = questionObj.author?.username || 'UrbanFlow User';
+    let authorHandle = questionObj.author?.email ? questionObj.author.email.split('@')[0] : (questionObj.author?.username || 'resident').toLowerCase().replace(/\s+/g, '');
+    let authorAvatar = questionObj.author?.avatar || '';
+
+    // Spoof CivicConnect System User
+    if (questionObj.isCivicReport && (!questionObj.author?._id || questionObj.author._id?.toString() === '000000000000000000000000' || authorName === 'UrbanFlow User')) {
+      authorName = 'CivicConnect AI Verified';
+      authorHandle = 'civicconnect';
+    }
+
     const postData = {
       ...questionObj,
-      authorName: questionObj.author?.username || 'UrbanFlow User',
-      authorHandle: (questionObj.author?.username || 'resident').toLowerCase().replace(/\s+/g, ''),
-      authorAvatar: questionObj.author?.avatar || '',
+      authorName,
+      authorHandle,
+      authorAvatar,
       timeAgo: getTimeAgo(questionObj.createdAt),
       comments: comments.map(c => ({
         ...c,
@@ -151,6 +174,33 @@ export const fetchQuestionById = async (req, res) => {
     res.status(500).json({ error: "Failed to fetch question", details: err.message });
   }
 };
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 export const createQuestion = async (req, res) => {
   try {
@@ -255,6 +305,50 @@ export const createQuestion = async (req, res) => {
     res.status(500).json({ message: "Failed to create question", error: error.message });
   }
 };
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 export const uploadImage = async (req, res) => {
   try {
@@ -507,6 +601,27 @@ export const patchQuestionVote = async (req, res) => {
       { returnDocument: 'after' }
     ).lean();
 
+    // --- CIVIC SYNDICATION PROXY (Option 3 Hybrid) ---
+    if (updatedQuestion?.isCivicReport && updatedQuestion?.reportId && delta === 1) {
+      try {
+        const cat = updatedQuestion.reportCategory.toLowerCase();
+        // Route naming convention: /updatewasteReports, /updatewaterReports, etc.
+        const endpoint = `/api/reports/update${cat}Reports`;
+        const base = process.env.BASE_URL || 'http://localhost:3000';
+        
+        await axios.post(`${base}${endpoint}`, {
+          userId: 'urban_connect_voter', // Bypass reporter check
+          email: user.email,
+          reportId: updatedQuestion.reportId,
+          geohash: updatedQuestion.geohash || ""
+        });
+        console.log(`[CivicSyndication] Proxied upvote to ${endpoint} for ${updatedQuestion.reportId}`);
+      } catch (err) {
+        console.error(`[CivicSyndication] Proxied upvote failed silently:`, err.message);
+      }
+    }
+    // --- END CIVIC PROXY ---
+
     // Invalidate Feed Cache
     const redisClient = getRedisClient();
     if (redisClient) {
@@ -576,13 +691,24 @@ export const searchQuestions = async (req, res) => {
       .sort({ _id: -1 })
       .lean();
 
-    searchResults = searchResults.map(q => ({
-      ...q,
-      authorName: q.author?.username || q.author?.name || 'UrbanFlow User',
-      authorHandle: (q.author?.username || q.author?.name || 'resident').toLowerCase().replace(/\s+/g, ''),
-      authorAvatar: q.author?.avatar || q.author?.picture || '',
-      timeAgo: getTimeAgo(q.createdAt),
-    }));
+    searchResults = searchResults.map(q => {
+      let authorName = q.author?.username || q.author?.name || 'UrbanFlow User';
+      let authorHandle = q.author?.email ? q.author.email.split('@')[0] : (q.author?.username || q.author?.name || 'resident').toLowerCase().replace(/\s+/g, '');
+      let authorAvatar = q.author?.avatar || q.author?.picture || '';
+
+      if (q.isCivicReport && (!q.author || q.author._id?.toString() === '000000000000000000000000' || authorName === 'UrbanFlow User')) {
+        authorName = 'CivicConnect AI Verified';
+        authorHandle = 'civicconnect';
+      }
+
+      return {
+        ...q,
+        authorName,
+        authorHandle,
+        authorAvatar,
+        timeAgo: getTimeAgo(q.createdAt),
+      };
+    });
 
     res.status(200).json(searchResults);
   } catch (err) {
@@ -592,11 +718,27 @@ export const searchQuestions = async (req, res) => {
 
 export const fetchUserProfile = async (req, res) => {
   try {
-    const { email } = req.query;
+    const { email, name, nickname, picture } = req.query;
     if (!email) return res.status(400).json({ error: "Email is required" });
 
-    const dbUser = await User.findOne({ email });
-    if (!dbUser) return res.status(404).json({ error: "User not found" });
+    let dbUser = await User.findOne({ email });
+    if (!dbUser) {
+      if (name) {
+        // Auto-bootstrap their mongo profile!
+        dbUser = await User.create({
+          username: name || 'Local Resident',
+          email: email,
+          auth0Id: req.auth?.payload?.sub || 'auto_bootstrap_' + Date.now(),
+          avatar: picture || null
+        });
+      } else {
+        return res.status(404).json({ error: "User not found" });
+      }
+    } else if (picture && (!dbUser.avatar || dbUser.avatar === '')) {
+      // Auto-heal missing avatars!
+      dbUser.avatar = picture;
+      await dbUser.save();
+    }
 
     // Fetch user's posts
     let userPosts = await Question.find({ author: dbUser._id })
@@ -609,11 +751,21 @@ export const fetchUserProfile = async (req, res) => {
     userPosts = await Promise.all(userPosts.map(async (q) => {
       const commentCount = await Comment.countDocuments({ questionId: q._id });
       const vote = await QuestionVote.findOne({ userId: dbUser._id, questionId: q._id }).lean();
+      
+      let authorName = q.author?.username || q.author?.name || 'UrbanFlow User';
+      let authorHandle = q.author?.email ? q.author.email.split('@')[0] : (q.author?.username || q.author?.name || 'resident').toLowerCase().replace(/\s+/g, '');
+      let authorAvatar = q.author?.avatar || q.author?.picture || '';
+
+      if (q.isCivicReport && (!q.author || q.author._id?.toString() === '000000000000000000000000' || authorName === 'UrbanFlow User')) {
+        authorName = 'CivicConnect AI Verified';
+        authorHandle = 'civicconnect';
+      }
+
       return {
         ...q,
-        authorName: q.author?.username || q.author?.name || 'UrbanFlow User',
-        authorHandle: (q.author?.username || q.author?.name || 'resident').toLowerCase().replace(/\s+/g, ''),
-        authorAvatar: q.author?.avatar || q.author?.picture || '',
+        authorName,
+        authorHandle,
+        authorAvatar,
         timeAgo: getTimeAgo(q.createdAt),
         commentCount,
         userVote: vote ? vote.value : 0,

@@ -1,4 +1,5 @@
 import { db } from '../../firebaseadmin/firebaseadmin.js';
+import { tryAutoDispatch } from '../../services/autoDispatch.js';
 
 export const saveElectricityReport = async (req, res) => {
   try {
@@ -25,6 +26,22 @@ export const saveElectricityReport = async (req, res) => {
     }
     await reportDocRef.set(finalData);
     console.log(`Electricity Report Saved: ${geohash} -> ${userId} -> ${reportDocRef.id}`);
+
+    // Fire-and-forget: auto-dispatch to nearest staff in background
+    tryAutoDispatch({
+      reportId:   reportDocRef.id,
+      department: 'electricity',
+      geohash,
+      location:   data.location || data.coords,
+      title:      data.title,
+      aiAnalysis: data.aiAnalysis,
+      severity:   data.severity,
+      address:    data.address,
+      email:      data.email,
+      userId,
+      imageUrl:   data.imageUrl || data.image || null,
+    }).catch(() => {});
+
     return res.status(200).json({
       status: "VERIFIED",
       message: "Electricity report saved successfully",

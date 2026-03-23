@@ -82,7 +82,9 @@ router.post("/", checkJwt, async (req, res) => {
             jobRef.update({
               // 🔥 CRITICAL FIX: Wrap the array in FieldValue.vector()
               job_embedding: FieldValue.vector(aiData.job_embedding),
-              enriched_description: aiData.enriched_description
+              enriched_description: aiData.enriched_description,
+              // 🆕 Graph RAG: Store extracted skills for graph-match
+              extracted_skills: aiData.extracted_skills || null
             }),
             db.collection("jobFeedback").doc(jobRef.id).set({
               jobId: jobRef.id,
@@ -314,25 +316,64 @@ router.get("/:jobId/match-workers", checkJwt, async (req, res) => {
       ? jobData.job_embedding.toArray()
       : jobData.job_embedding;
 
-    // Optional safe-guard if the background worker hasn't attached it yet
     if (!jobEmbedding) {
       console.warn(`Job ${jobId} doesn't have an embedding yet.`);
       jobEmbedding = null;
     }
 
-    // 2. Query all active workers matching the category
-    // NOTE: In the future, a Location geohash boundary can be added here
+    // 🆕 Graph RAG: Try graph-match first, fallback to old vector scoring
+    const jobSkillIds = jobData.extracted_skills?.skills?.map(s => s.skill_id) || [];
+    const pyAgentUrl = process.env.AGENT_URL || process.env.PYTHON_SERVER || "http://127.0.0.1:10000";
+
+    let graphWorkers = [];
+    if (jobSkillIds.length > 0) {
+      try {
+        const graphRes = await axios.post(`${pyAgentUrl}/graph-match`, {
+          job_id: jobId,
+          job_description: jobData.enriched_description || jobData.description || jobData.category || '',
+          job_skill_ids: jobSkillIds,
+          employer_id: employerId,
+          lat: jobData.location?.lat || 0,
+          lng: jobData.location?.lng || 0,
+          radius_km: 10.0
+        });
+        graphWorkers = graphRes.data?.candidates || [];
+      } catch (graphErr) {
+        console.warn('[Graph Match] Failed, falling back to vector scoring:', graphErr.message);
+      }
+    }
+
+    // If graph returned candidates, enrich them with Firestore profile data
+    if (graphWorkers.length > 0) {
+      const enrichedWorkers = [];
+      for (const gw of graphWorkers) {
+        const wSnap = await db.collection("users").doc(gw.worker_id).get();
+        if (!wSnap.exists) continue;
+        const wData = wSnap.data();
+        enrichedWorkers.push({
+          id: gw.worker_id,
+          name: wData.name,
+          picture: wData.picture,
+          completedJobs: wData.completedJobs || 0,
+          rating: wData.rating || 0,
+          description: wData.description || "",
+          similarityScore: gw.confidence || 0,
+          match_reason: gw.match_reason || "",
+          confidence: gw.confidence || 0,
+        });
+      }
+      return res.json({ workers: enrichedWorkers });
+    }
+
+    // FALLBACK: Old vector scoring (if graph has no data yet)
     const workersSnap = await db.collection("users")
       .where("interestedToWork", "==", true)
       .where("workerCategories", "array-contains", jobCategory)
       .get();
 
     const scoredWorkers = [];
-
-    // 3. Score Workers against the Job Description
     workersSnap.docs.forEach(doc => {
       const workerId = doc.id;
-      // Exclude the employer themself from their own job recommendations
       if (workerId === employerId) return;
 
       const wData = doc.data();
@@ -344,7 +385,6 @@ router.get("/:jobId/match-workers", checkJwt, async (req, res) => {
       if (jobEmbedding && wEmbedding) {
         score = cosineSimilarity(jobEmbedding, wEmbedding);
       } else {
-        // Fallback: if either is missing, give a base score so they still show up
         score = 0.1;
       }
 
@@ -359,9 +399,7 @@ router.get("/:jobId/match-workers", checkJwt, async (req, res) => {
       });
     });
 
-    // 4. Sort Descending by AI Match Score
     scoredWorkers.sort((a, b) => b.similarityScore - a.similarityScore);
-
     res.json({ workers: scoredWorkers });
 
   } catch (err) {
@@ -508,6 +546,21 @@ router.post("/:jobId/close-and-rate", checkJwt, async (req, res) => {
       console.error("Background Agent Skill Gap failed:", err.message);
     });
 
+    // 🆕 Graph RAG: Fire-and-forget graph writeback
+    const pyAgentUrl = process.env.AGENT_URL || process.env.PYTHON_SERVER || "http://127.0.0.1:10000";
+    const extractedSkillIds = jobData.extracted_skills?.skills?.map(s => s.skill_id) || [];
+    const graphAvgRating = ratings.reduce((a, b) => a + b, 0) / ratings.length;
+
+    if (extractedSkillIds.length > 0) {
+      axios.post(`${pyAgentUrl}/graph-writeback`, {
+        worker_id: workerId,
+        employer_id: employerId,
+        job_id: jobId,
+        skill_ids: extractedSkillIds,
+        rating: graphAvgRating
+      }).catch(err => console.error('[Graph Writeback] Failed:', err.message));
+    }
+
   } catch (err) {
     console.error("Close and Rate error:", err);
     if (!res.headersSent) {
@@ -614,6 +667,17 @@ router.post("/:jobId/report-chat", checkJwt, async (req, res) => {
             aiAnalysis: aiData.summary
           });
           console.log(`Safety Agent successfully analyzed report ${reportRef.id}`);
+
+          // 🆕 Graph RAG: Write safety flag for HIGH/CRITICAL
+          if (['HIGH', 'CRITICAL'].includes(aiData.severity)) {
+            const graphPyUrl = process.env.AGENT_URL || process.env.PYTHON_SERVER || "http://127.0.0.1:10000";
+            axios.post(`${graphPyUrl}/graph-safety-flag`, {
+              worker_id: reportedUserId || 'unknown',
+              employer_id: reporterId,
+              severity: aiData.severity,
+              job_id: jobId
+            }).catch(err => console.error('[Safety Flag] Failed:', err.message));
+          }
         }
       } catch (agentErr) {
         console.error("AI Safety Check failed in background:", agentErr.message);

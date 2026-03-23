@@ -7,6 +7,7 @@ import { fetchAddressFromCoords } from './../utils/geocoding';
 import { useAuthStore } from '@/store/useAuthStore'; 
 import ngeohash from "ngeohash";
 import UserLiveTracking from './UserLiveTracking'; 
+import { api } from '../lib/api';
 
 export const FireSOSButton = () => {
   const [status, setStatus] = useState('loading'); 
@@ -76,7 +77,7 @@ export const FireSOSButton = () => {
       { enableHighAccuracy: true }
     );
   };
-  const triggerFireSOS = () => {
+  const triggerFireSOS = async () => {
     const fallbackHash = ngeohash.encode(0, 0, 7);
     const finalLocation = locationData || { lat: 0, lng: 0, address: "Fetching...", geohash: fallbackHash };
     const geohash = finalLocation.geohash || fallbackHash;
@@ -106,7 +107,18 @@ export const FireSOSButton = () => {
       timestamp: Date.now()
     };
 
-    update(ref(db), updates);
+    await update(ref(db), updates);
+
+    // Call server to handle fire auto-dispatch immediately
+    try {
+      await api.post('/api/reports/fireAutoDispatch', {
+        alertId: newAlertKey,
+        geohash: geohash,
+        location: finalLocation
+      });
+    } catch (err) {
+      console.error("Failed to trigger fire auto-dispatch", err);
+    }
   };
 
   // Timer Logic

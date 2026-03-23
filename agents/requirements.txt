@@ -32,6 +32,10 @@ typing-extensions
 tiktoken
 Pillow
 
+# --- MongoDB (Graph RAG) ---
+motor
+certifi
+
 # --- Security & Auth ---
 python-jose[cryptography]
 PyJWT
