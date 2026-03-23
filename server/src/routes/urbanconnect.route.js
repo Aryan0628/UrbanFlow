@@ -1,4 +1,5 @@
 import express from 'express';
+import axios from 'axios';
 import { fetchQuestions, fetchQuestionById, createQuestion, postComment, getComments, getReplies, patchVote, patchQuestionVote, searchQuestions, fetchUserProfile, toggleSave, uploadImage as uploadImageController, fetchAuthoritiesByCity } from '../controllers/urbanconnect.controller.js';
 import { upload } from '../../middlewares/upload.js';
 import { clusterCheck, getClusters } from '../controllers/urbanconnect/cluster.controller.js';
@@ -10,6 +11,20 @@ const router = express.Router();
 router.post('/syndicate-civic', (req, res) => {
   res.status(200).json({ queued: true });
   civicSyndication(req.body);
+});
+
+router.post('/agent/chat', async (req, res) => {
+  try {
+    const pyAgentUrl = process.env.AGENT_URL || process.env.PYTHON_SERVER || "http://127.0.0.1:10000";
+    const authHeader = req.headers.authorization;
+    const response = await axios.post(`${pyAgentUrl}/assistant-chat`, req.body, {
+      headers: { Authorization: authHeader }
+    });
+    res.json(response.data);
+  } catch (error) {
+    console.error("Agent chat proxy error:", error.response?.data || error.message);
+    res.status(500).json({ error: "Agent unavailable" });
+  }
 });
 
 router.get('/fetchQuestion', fetchQuestions);

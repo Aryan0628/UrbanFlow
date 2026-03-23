@@ -1,6 +1,6 @@
 import * as ngoService from "../../services/kindshare/ngoService.js";
 import { sendVerificationEmail } from "../../services/kindshare/emailService.js";
-import { db } from "../../firebaseadmin/firebaseAdmin.js";
+import { db } from "../../firebaseadmin/firebaseadmin.js";
 
 
 

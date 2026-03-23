@@ -1,4 +1,4 @@
-import { db } from "../../firebaseadmin/firebaseAdmin.js";
+import { db } from "../../firebaseadmin/firebaseadmin.js";
 
 /**
  * Aggregates GEE reports from all 6 environmental modules for a specific user.

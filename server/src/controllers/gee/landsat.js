@@ -3,7 +3,7 @@ import { fileURLToPath } from "url";
 import fs from "fs";
 import { runCoastalCheck } from "../../gee/earth/coastal_erosion/landsat_coastal.js";
 import { runFloodCheck } from "../../gee/earth/flood/sentinel1_flood.js";
-import { db } from "../../firebaseadmin/firebaseAdmin.js";
+import { db } from "../../firebaseadmin/firebaseadmin.js";
 import { runGeoIntelligence } from "../../gee/earth/shared/geoIntelligence.js";
 import { runCrossModuleCorrelation } from "../../gee/earth/shared/correlationAgent.js";
 

@@ -5,6 +5,7 @@ import { useAuth0 } from "react-native-auth0";
 import { useAuthStore } from "../../store/useAuthStore";
 import { useNotificationStore } from "../../store/useNotificationStore";
 import CircularText from "../../components/ui/CircularText";
+import VyomAgentFAB from "../../components/features/VyomAgent/VyomAgentFAB";
 
 export default function ProtectedLayout() {
   const { isLoading } = useAuth0();
@@ -39,6 +40,7 @@ export default function ProtectedLayout() {
           />
         </View>
       )}
+      {!isLoading && isAuthenticated && <VyomAgentFAB />}
     </View>
   );
 }

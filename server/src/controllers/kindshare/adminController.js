@@ -1,4 +1,4 @@
-import { db } from "../../firebaseadmin/firebaseAdmin.js";
+import { db } from "../../firebaseadmin/firebaseadmin.js";
 import { sendApprovalEmail, sendRejectionEmail } from "../../services/kindshare/emailService.js";
 import * as adminService from "../../services/kindshare/adminService.js";
 

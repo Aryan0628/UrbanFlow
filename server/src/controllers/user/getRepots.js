@@ -4,6 +4,7 @@ import { db } from "../../firebaseadmin/firebaseadmin.js";
 export const fetchReportsByUserId = async (req, res) => {
   try {
     const userId = req.auth?.payload?.sub;
+    console.log("ai initated this api req")
 
 
     if (!userId) {

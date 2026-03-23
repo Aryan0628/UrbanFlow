@@ -1,4 +1,4 @@
-import { db } from '../../firebaseadmin/firebaseAdmin.js';
+import { db } from '../../firebaseadmin/firebaseadmin.js';
 
 export const saveUncertainReport = async (req, res) => {
   try {

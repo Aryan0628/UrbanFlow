@@ -2,7 +2,6 @@ import axios from "axios";
 
 const API_URL = import.meta.env.VITE_API_URL;
 if(!API_URL) throw new Error("API_URL is not defined");
-console.log("baseURL",API_URL);
 export const api = axios.create({
   baseURL: API_URL,
   timeout: 60000,

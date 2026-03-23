@@ -2,7 +2,7 @@ import express from "express";
 import { getUserById } from "../controllers/user.controller.js";
 import { checkJwt } from "../auth/authMiddleware.js";
 import { fetchReportsByUserId } from "../controllers/user/getRepots.js"
-import { db, FieldValue } from "../firebaseadmin/firebaseAdmin.js";
+import { db, FieldValue } from "../firebaseadmin/firebaseadmin.js";
 import axios from "axios";
 
 const router = express.Router();

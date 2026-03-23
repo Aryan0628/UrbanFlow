@@ -30,6 +30,8 @@ from brain.streetgig.trajectory_agent import get_skill_trajectory, apply_traject
 from brain.streetgig.context_reranker import contextual_rerank
 from motor.motor_asyncio import AsyncIOMotorClient
 
+# --- VYOM AI IMPORT ---
+from brain.vyomai.agent import vyom_agent
 
 from brain.urbanconnect.scrapper.orchestrator import fetch_and_analyze_city_pulse_graph
 
@@ -797,3 +799,74 @@ async def extract_worker_skills(req: ExtractSkillsRequest):
         return {'status': 'success', 'skill_ids': skill_ids}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# VYOM AI — Voice Assistant Endpoint
+# ═══════════════════════════════════════════════════════════════════════
+
+class AssistantChatRequest(BaseModel):
+    text: str
+    sessionId: Optional[str] = None
+    messages: Optional[List[Dict[str, str]]] = None
+    pendingIntent: Optional[str] = None
+    collectedData: Optional[Dict] = None
+    location: Optional[Dict] = None
+
+@app.post('/assistant-chat')
+async def assistant_chat(
+    req: AssistantChatRequest,
+    authorization: Optional[str] = Header(None),
+):
+    '''Vyom AI voice assistant endpoint. Called by the Node.js proxy.'''
+    from uuid import uuid4
+
+    # Extract user_id from the forwarded token
+    user_id = ""
+    token = authorization or ""
+    if token.startswith("Bearer "):
+        try:
+            raw_token = token.split(" ")[1]
+            jwks_url = f"https://{AUTH0_DOMAIN}/.well-known/jwks.json"
+            jwks = requests.get(jwks_url).json()
+            unverified = jwt.get_unverified_header(raw_token)
+            rsa_key = {}
+            for key in jwks["keys"]:
+                if key["kid"] == unverified.get("kid"):
+                    rsa_key = {"kty": key["kty"], "kid": key["kid"], "use": key["use"], "n": key["n"], "e": key["e"]}
+            if rsa_key:
+                payload = jwt.decode(raw_token, rsa_key, algorithms=ALGORITHMS, audience=AUTH0_AUDIENCE, issuer=f"https://{AUTH0_DOMAIN}/")
+                user_id = payload.get("sub", "")
+        except Exception as e:
+            print(f"[Vyom AI] Auth warning (non-fatal): {e}", flush=True)
+
+    session_id = req.sessionId or str(uuid4())
+
+    try:
+        collected_data = req.collectedData or {}
+        if req.location:
+            collected_data['location'] = req.location
+
+        result = await vyom_agent.ainvoke({
+            'user_id': user_id,
+            'session_id': session_id,
+            'current_message': req.text,
+            'messages': req.messages or [],
+            'pending_intent': req.pendingIntent,
+            'collected_data': collected_data,
+            '_token': token,
+        })
+
+        return {
+            'reply': result.get('response', 'Sorry, I could not process that.'),
+            'action': result.get('action'),
+            'sessionId': session_id,
+            'pendingIntent': result.get('pending_intent'),
+            'collectedData': result.get('collected_data'),
+        }
+    except Exception as e:
+        print(f"[Vyom AI] Error: {e}", flush=True)
+        return {
+            'reply': 'Sorry, the assistant encountered an error. Please try again.',
+            'sessionId': session_id,
+        }

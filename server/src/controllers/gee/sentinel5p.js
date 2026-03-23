@@ -4,7 +4,7 @@ import fs from "fs";
 import { runAirQualityCheck } from "../../gee/earth/pollutants/sentinel5p_air_quality.js";
 import { runHeatCheck } from "../../gee/earth/surfaceHeat/landsat_surface_temp.js";
 import dotenv from "dotenv";
-import { db } from "../../firebaseadmin/firebaseAdmin.js";
+import { db } from "../../firebaseadmin/firebaseadmin.js";
 import { runGeoIntelligence } from "../../gee/earth/shared/geoIntelligence.js";
 import { runCrossModuleCorrelation } from "../../gee/earth/shared/correlationAgent.js";
 dotenv.config();
