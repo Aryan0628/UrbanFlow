@@ -32,8 +32,9 @@ client/src/config.js
 vertexAiKey.json
 unknown*
 venv/
+server/.venv
+agents/brain/__pycache__
 sentinal/model
 sentinal/serviceAccountKey.json
 sentinal/__pycache__
 agents/.venv
-server/.venv
