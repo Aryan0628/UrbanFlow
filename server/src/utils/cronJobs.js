@@ -22,11 +22,11 @@ const startCronJobs = async () => {
     console.log("✅ GEE Report Updates Completed.");
   });
 
-  cron.schedule("0 2 * * *", async () => {
-    console.log("⏰ Cron Job Triggered: Fetching Social Media City Pulse...");
-    await fetchAndAnalyzeCityPulse();
-    console.log("✅ City Pulse Analysis Completed.");
-  });
+  cron.schedule("27 3 * * *", async () => {
+  console.log("⏰ Cron Job Triggered: Fetching Social Media City Pulse...");
+  await fetchAndAnalyzeCityPulse();
+  console.log("✅ City Pulse Analysis Completed.");
+});
 };
 
 export default startCronJobs;

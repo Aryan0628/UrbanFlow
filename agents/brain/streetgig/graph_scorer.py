@@ -29,19 +29,17 @@ def recency_score(last_active_iso: str | None) -> float:
         return 0.5
 
 
-def reputation_score(worker_id: str, graph_candidates: List[Dict], skill_node_avg: float) -> float:
+def reputation_score(worker_id: str, candidate_dict: Dict, skill_node_avg: float) -> float:
     """
-    Weighted reputation. New workers inherit the skill node average (cold-start fix).
-    Workers with history use their actual completion edge ratings.
+    Weighted reputation. Uses the pre-calculated weight from the candidate pool.
+    New workers inherit the skill node average (cold-start fix).
     """
-    edges = [c for c in graph_candidates if c.get('worker_id') == worker_id]
-    if not edges or not any('weight' in e for e in edges):
+    weight = candidate_dict.get('weight', 0)
+    if not weight or weight == 0:
         # Cold start: inherit skill node average, normalised to 0-1
         return min(skill_node_avg / 5.0, 1.0) * 0.7  # discount vs earned reputation
-    ratings = [e['weight'] for e in edges if 'weight' in e and e['weight'] > 0]
-    if not ratings:
-        return min(skill_node_avg / 5.0, 1.0) * 0.7
-    return min(sum(ratings) / (len(ratings) * 5.0), 1.0)
+    
+    return min(weight / 5.0, 1.0)
 
 
 def safety_multiplier(worker_id: str, safety_flags: List[Dict]) -> float:

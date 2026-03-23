@@ -2,7 +2,7 @@ import express from "express";
 import { getUserById } from "../controllers/user.controller.js";
 import { checkJwt } from "../auth/authMiddleware.js";
 import { fetchReportsByUserId } from "../controllers/user/getRepots.js"
-import { db, FieldValue } from "../firebaseadmin/firebaseAdmin.js";
+import { db, FieldValue } from "../firebaseadmin/firebaseadmin.js";
 import axios from "axios";
 
 const router = express.Router();
@@ -70,14 +70,15 @@ router.patch("/worker-interest", checkJwt, async (req, res) => {
 
     // 6. Fire-and-Forget the AI Agent (runs in the background)
     if (interestedToWork && updateData.master_string) {
+      const pyAgentUrl = process.env.AGENT_URL || process.env.PYTHON_SERVER || "http://127.0.0.1:10000";
+
       (async () => {
         try {
-          const pyAgentUrl = process.env.AGENT_URL || process.env.PYTHON_SERVER || "http://127.0.0.1:10000"|| "http://localhost:8000";
-          console.log("pyagenturl",pyAgentUrl);
+          console.log("pyagenturl", pyAgentUrl);
           const aiResponse = await axios.post(`${pyAgentUrl}/embed`, {
             text: updateData.master_string
           });
-          console.log("aiResponse",aiResponse);
+          console.log("aiResponse", aiResponse);
 
           const aiData = aiResponse.data;
 
@@ -261,7 +262,7 @@ router.get("/learning-schemes-graph", checkJwt, async (req, res) => {
     const userData = userSnap.data();
 
     // 2. Call Python agent to get graph-based skill gaps
-    const pyAgentUrl = process.env.AGENT_URL || process.env.PYTHON_SERVER || "http://127.0.0.1:10000";
+    const pyAgentUrl =process.env.PYTHON_SERVER;
 
     // Get worker's gap embedding with graph context
     const gapContext = userData.skill_gap_string || "";

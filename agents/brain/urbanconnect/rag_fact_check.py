@@ -32,6 +32,8 @@ async def rag_fact_check(state: CivicAnalysisState):
 
     # 1. Retrieve relevant official announcements via vector search
     official_context = "No official announcements found for this city."
+    announcements = []
+    
     try:
         response = requests.post(
             f"{BACKEND_URL}/api/announcements/search",
@@ -53,52 +55,69 @@ async def rag_fact_check(state: CivicAnalysisState):
                     f"Date: {ann.get('createdAt', '')}"
                 )
             official_context = "\n\n".join(context_parts)
-
-        # --- STEP 1.5: WEB SEARCH FALLBACK ---
-        if len(announcements) < 2:
-            print("  ├─> [WEB SEARCH] Local RAG insufficient. Hitting Tavily API...")
-            try:
-                tavily_api_key = os.getenv("TAVILY_API_KEY")
-                if tavily_api_key:
-                    tavily_client = TavilyClient(api_key=tavily_api_key)
-                    search_city = city.strip() if city and city.strip() else "Prayagraj"
-                    
-                    # Clean up the query using the first 12 words of the embedding string
-                    clean_query_base = embedding_string.split()[:12]
-                    clean_query_str = " ".join(clean_query_base)
-                    query = f"{search_city} {clean_query_str} official news update"
-                    
-                    print(f"  ├─> [WEB SEARCH] Query: \"{query}\"")
-                    
-                    # Search depth changed to advanced for better context scraping
-                    search_result = tavily_client.search(query=query, search_depth="advanced", max_results=3)
-                    
-                    results_count = len(search_result.get("results", []))
-                    print(f"  ├─> [WEB SEARCH] Tavily returned {results_count} results.")
-                    
-                    web_context_parts = []
-                    for i, res in enumerate(search_result.get("results", []), 1):
-                        web_context_parts.append(
-                            f"[Live Web Source {i}] "
-                            f"Title: {res.get('title', '')}\n"
-                            f"Content Snippet: {res.get('content', '')}\n"
-                            f"URL: {res.get('url', '')}"
-                        )
-                    
-                    if web_context_parts:
-                        web_context_str = "\n\n".join(web_context_parts)
-                        if "No official announcements" in official_context:
-                            official_context = web_context_str
-                        else:
-                            official_context += "\n\n" + web_context_str
-                        print("  ├─> [WEB SEARCH] Found live web context.")
-                else:
-                    print("  ├─> [WEB SEARCH] Skipped. No TAVILY_API_KEY found.")
-            except Exception as e:
-                print(f"  ├─> [WEB SEARCH] Failed: {e}")
-
     except Exception as e:
         print(f"Announcement search failed: {e}")
+
+    # --- STEP 1.5: CRAG RELEVANCE CHECK & WEB SEARCH FALLBACK ---
+    needs_web_search = True
+    
+    if announcements:
+        try:
+            relevance_prompt = (
+                f"Does this official context contain any keywords, mentions, or information vaguely related to the claim: '{title}'?\n"
+                f"Context: {official_context}\n"
+                f"Answer ONLY 'Yes' or 'No'."
+            )
+            relevance_msg = await llm.ainvoke([HumanMessage(content=relevance_prompt)])
+            if "yes" in relevance_msg.content.lower():
+                needs_web_search = False
+                print("  ├─> [CRAG CHECK] Official context is relevant. Skipping Web Search.")
+            else:
+                print("  ├─> [CRAG CHECK] Official context is irrelevant. Triggering Web Search.")
+        except Exception as e:
+            print(f"  ├─> [CRAG CHECK] Failed: {e}. Defaulting to Web Search.")
+
+    if needs_web_search:
+        print("  ├─> [WEB SEARCH] Local RAG insufficient. Hitting Tavily API...")
+        try:
+            tavily_api_key = os.getenv("TAVILY_API_KEY")
+            if tavily_api_key:
+                tavily_client = TavilyClient(api_key=tavily_api_key)
+                search_city = city.strip() if city and city.strip() else "Prayagraj"
+                
+                # Clean up the query using the first 12 words of the embedding string
+                clean_query_base = embedding_string.split()[:12]
+                clean_query_str = " ".join(clean_query_base)
+                query = f"{search_city} {clean_query_str} official news update"
+                
+                print(f"  ├─> [WEB SEARCH] Query: \"{query}\"")
+                
+                # Search depth changed to advanced for better context scraping
+                search_result = tavily_client.search(query=query, search_depth="advanced", max_results=3)
+                
+                results_count = len(search_result.get("results", []))
+                print(f"  ├─> [WEB SEARCH] Tavily returned {results_count} results.")
+                
+                web_context_parts = []
+                for i, res in enumerate(search_result.get("results", []), 1):
+                    web_context_parts.append(
+                        f"[Live Web Source {i}] "
+                        f"Title: {res.get('title', '')}\n"
+                        f"Content Snippet: {res.get('content', '')}\n"
+                        f"URL: {res.get('url', '')}"
+                    )
+                
+                if web_context_parts:
+                    web_context_str = "\n\n".join(web_context_parts)
+                    if "No official announcements" in official_context:
+                        official_context = web_context_str
+                    else:
+                        official_context += "\n\n" + web_context_str
+                    print("  ├─> [WEB SEARCH] Found live web context.")
+            else:
+                print("  ├─> [WEB SEARCH] Skipped. No TAVILY_API_KEY found.")
+        except Exception as e:
+            print(f"  ├─> [WEB SEARCH] Failed: {e}")
 
     # 2. Ask LLM to verify claim against official context
     prompt = f"""You are the Lead Fact-Checker for the UrbanConnect civic platform in {city}.
